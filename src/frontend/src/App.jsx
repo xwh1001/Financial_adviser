@@ -10,6 +10,7 @@ import HouseGoal from './components/HouseGoal.jsx';
 import CategoryModal from './components/CategoryModal.jsx';
 import Settings from './components/Settings.jsx';
 import ProgressDialog from './components/ProgressDialog.jsx';
+import FileUpload from './components/FileUpload.jsx';
 
 function App() {
   const [activeSection, setActiveSection] = useState('overview');
@@ -19,6 +20,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [userSettings, setUserSettings] = useState({});
   const [progressDialog, setProgressDialog] = useState({ isOpen: false, title: '', message: '' });
+  const [showFileUpload, setShowFileUpload] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -43,31 +45,13 @@ function App() {
   };
 
   const processFiles = async () => {
-    setProgressDialog({
-      isOpen: true,
-      title: 'Processing Files',
-      message: 'Parsing and importing financial documents. This may take a few moments...'
-    });
+    // New approach: open file upload modal instead of processing existing files
+    setShowFileUpload(true);
+  };
 
-    try {
-      const response = await fetch('/api/process-files', {
-        method: 'POST'
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        alert(`Successfully processed ${result.filesProcessed} files!`);
-        await loadDashboardData();
-      } else {
-        alert(`Error: ${result.message}`);
-      }
-    } catch (error) {
-      console.error('Error processing files:', error);
-      alert('Error processing files. Check console for details.');
-    } finally {
-      setProgressDialog({ isOpen: false, title: '', message: '' });
-    }
+  const handleUploadComplete = async () => {
+    // Reload dashboard data after successful upload
+    await loadDashboardData();
   };
 
   const openCategoryModal = (category, categoryName, selectedMonths = []) => {
@@ -143,6 +127,12 @@ function App() {
         isOpen={progressDialog.isOpen}
         title={progressDialog.title}
         message={progressDialog.message}
+      />
+      
+      <FileUpload 
+        isOpen={showFileUpload}
+        onClose={() => setShowFileUpload(false)}
+        onUploadComplete={handleUploadComplete}
       />
     </div>
   );

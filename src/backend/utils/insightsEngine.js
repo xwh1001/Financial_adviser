@@ -1,4 +1,5 @@
 const Formatters = require('../../shared/utils/formatters');
+const DateFilter = require('./dateFilter');
 
 /**
  * Financial Insights Engine - Provides personalized spending insights and money-saving recommendations
@@ -76,84 +77,38 @@ class FinancialInsightsEngine {
       return null;
     }
 
-    // Calculate cutoff date based on timeframe
-    const cutoffDate = this.getTimeframeCutoffDate(timeframe);
+    // Special handling for 'lastmonth' to use monthly summary data for consistency
+    if (timeframe === 'lastmonth') {
+      return DateFilter.getLastMonthFromSummaries(ytdData);
+    }
+
+    // Convert timeframe to months for consistent filtering
+    const months = DateFilter.timeframeToMonths(timeframe);
+    if (!months.length) {
+      return null;
+    }
     
-    // Filter transactions and income based on timeframe
-    const filteredTransactions = ytdData.transactions.filter(txn => {
-      return new Date(txn.date) >= cutoffDate;
-    });
-    
-    const filteredIncome = ytdData.income.filter(income => {
-      const payDate = new Date(income.pay_period_end || income.pay_period_start);
-      return payDate >= cutoffDate;
-    });
+    // Filter transactions and income using centralized logic
+    const filteredTransactions = DateFilter.filterTransactionsByMonths(ytdData.transactions, months);
+    const filteredIncome = DateFilter.filterIncomeByMonths(ytdData.income, months);
 
     if (!filteredTransactions.length) {
       return null;
     }
 
-    // Calculate category totals
-    const categories = {};
-    filteredTransactions.forEach(txn => {
-      categories[txn.category] = (categories[txn.category] || 0) + txn.amount;
-    });
-
-    // Calculate summary metrics
-    const totalExpenses = Object.values(categories).reduce((sum, amount) => sum + amount, 0);
-    const totalIncome = filteredIncome.reduce((sum, income) => sum + (income.net_pay || 0), 0);
-    const netSavings = totalIncome - totalExpenses;
-    const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) : 0;
-
-    // Get monthly averages
-    const monthsWithData = new Set(filteredTransactions.map(t => t.date.substring(0, 7))).size;
-    const monthlyAverages = {};
-    Object.entries(categories).forEach(([category, total]) => {
-      monthlyAverages[category] = monthsWithData > 0 ? total / monthsWithData : 0;
-    });
-
+    // Use centralized calculation logic for consistency
+    const result = DateFilter.calculateMonthlySummary(filteredTransactions, filteredIncome);
+    
     return {
-      summary: {
-        totalIncome,
-        totalExpenses,
-        netSavings,
-        savingsRate,
-        monthsWithData
-      },
-      categories,
-      monthlyAverages,
-      transactions: filteredTransactions,
-      totalTransactions: filteredTransactions.length,
+      ...result,
       timeframe
     };
   }
 
   /**
-   * Calculate cutoff date based on timeframe
+   * NOTE: Date filtering logic has been moved to centralized DateFilter utility
+   * for consistency between Monthly Analysis and INSIGHTS
    */
-  getTimeframeCutoffDate(timeframe) {
-    const now = new Date();
-    let cutoffDate;
-
-    switch (timeframe) {
-      case 'last3months':
-        cutoffDate = new Date(now);
-        cutoffDate.setDate(1); // First day of current month
-        cutoffDate.setMonth(cutoffDate.getMonth() - 3);
-        break;
-      case 'last6months':
-        cutoffDate = new Date(now);
-        cutoffDate.setDate(1); // First day of current month
-        cutoffDate.setMonth(cutoffDate.getMonth() - 6);
-        break;
-      case 'ytd':
-      default:
-        cutoffDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
-        break;
-    }
-
-    return cutoffDate;
-  }
 
   /**
    * Analyze spending patterns and trends

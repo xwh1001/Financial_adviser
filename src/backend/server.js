@@ -71,6 +71,319 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Financial Dashboard API is running' });
 });
 
+// Get existing files organized by month
+app.get('/api/files/existing', errorHandler.asyncHandler(async (req, res) => {
+  const uploadsPath = path.join(__dirname, '../../uploads');
+  
+  try {
+    if (!await fs.pathExists(uploadsPath)) {
+      return res.json({ files: [] });
+    }
+
+    const files = [];
+    const categories = ['bank-statements', 'payslips', 'receipts', 'tax-documents', 'other'];
+    
+    for (const category of categories) {
+      const categoryPath = path.join(uploadsPath, category);
+      if (await fs.pathExists(categoryPath)) {
+        const categoryFiles = await fs.readdir(categoryPath);
+        
+        for (const filename of categoryFiles) {
+          if (filename.toLowerCase().endsWith('.pdf')) {
+            const filePath = path.join(categoryPath, filename);
+            const stats = await fs.stat(filePath);
+            
+            // Extract month from filename or use file date
+            const month = extractMonthFromFilename(filename) || 
+                         stats.mtime.toISOString().substring(0, 7);
+            
+            files.push({
+              name: filename,
+              category,
+              month,
+              size: stats.size,
+              uploadDate: stats.mtime
+            });
+          }
+        }
+      }
+    }
+    
+    res.json({ files });
+  } catch (error) {
+    console.error('Error reading existing files:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error reading existing files',
+      error: error.message
+    });
+  }
+}));
+
+// Helper function to extract month from filename
+function extractMonthFromFilename(filename) {
+  // Try to extract date patterns from various filename formats
+  const datePatterns = [
+    // ISO date formats: 2025-05-16_amex-statement
+    /(\d{4})[-_.](\d{2})[-_.]\d{2}/,           // 2025-05-16_amex-statement (capture year and month)
+    
+    // Year-Month formats: 202405, 2024-05, 2024_05
+    /(\d{4})[-_.]?(\d{2})/,                   // 202405, 2024-05, 2024_05
+    
+    // Month Year formats: May2024, May_2024, May-2024
+    /(\w{3,9})[-_.]\s*(\d{4})/,               // May-2024, January_2024
+    /(\w{3,9})\s*(\d{4})/,                    // May2024, January2024
+    
+    // Reverse formats: 2024-May, 2024_January
+    /(\d{4})[-_.]\s*(\w{3,9})/,               // 2024-May, 2024_January
+    
+    // Date with day: 16-05-2024, 16_05_2024
+    /\d{1,2}[-_.](\d{2})[-_.](\d{4})/,        // 16-05-2024
+    
+    // Just year-month: 24-05, 24_05 (assuming 20xx)
+    /^(\d{2})[-_.](\d{2})/                    // 24-05 (convert to 2024-05)
+  ];
+
+  const monthNames = {
+    'jan': 1, 'january': 1,
+    'feb': 2, 'february': 2,
+    'mar': 3, 'march': 3,
+    'apr': 4, 'april': 4,
+    'may': 5,
+    'jun': 6, 'june': 6,
+    'jul': 7, 'july': 7,
+    'aug': 8, 'august': 8,
+    'sep': 9, 'september': 9,
+    'oct': 10, 'october': 10,
+    'nov': 11, 'november': 11,
+    'dec': 12, 'december': 12
+  };
+
+  for (let i = 0; i < datePatterns.length; i++) {
+    const pattern = datePatterns[i];
+    const match = filename.match(pattern);
+    
+    if (match) {
+      try {
+        let year = null;
+        let month = null;
+
+        switch (i) {
+          case 0: // 2025-05-16_amex-statement (capture year and month)
+          case 1: // 202405, 2024-05, 2024_05
+            year = parseInt(match[1]);
+            month = parseInt(match[2]);
+            break;
+            
+          case 2: // May-2024, January_2024
+          case 3: // May2024, January2024
+            const monthName = match[1].toLowerCase();
+            month = monthNames[monthName];
+            year = parseInt(match[2]);
+            break;
+            
+          case 4: // 2024-May, 2024_January
+            year = parseInt(match[1]);
+            const monthName2 = match[2].toLowerCase();
+            month = monthNames[monthName2];
+            break;
+            
+          case 5: // 16-05-2024
+            month = parseInt(match[1]);
+            year = parseInt(match[2]);
+            break;
+            
+          case 6: // 24-05 (assume 20xx)
+            year = 2000 + parseInt(match[1]);
+            month = parseInt(match[2]);
+            break;
+        }
+        
+        // Validate extracted date
+        if (year && month && year >= 2020 && year <= 2030 && month >= 1 && month <= 12) {
+          console.log(`📅 Backend extracted date from "${filename}": ${year}-${month.toString().padStart(2, '0')}`);
+          return `${year}-${month.toString().padStart(2, '0')}`;
+        }
+      } catch (e) {
+        console.warn(`⚠️ Backend error parsing date from "${filename}":`, e);
+        continue;
+      }
+    }
+  }
+  
+  console.warn(`⚠️ Backend could not extract date from filename: "${filename}"`);
+  return null;
+}
+
+// Upload files endpoint
+app.post('/api/upload-files', upload.array('files', 20), errorHandler.asyncHandler(async (req, res) => {
+  const { categories, estimatedMonths } = req.body;
+  
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'No files uploaded'
+    });
+  }
+
+  const uploadsPath = path.join(__dirname, '../../uploads');
+  await fs.ensureDir(uploadsPath);
+
+  let uploadedCount = 0;
+  const uploadedFiles = [];
+  const errors = [];
+
+  try {
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      const category = Array.isArray(categories) ? categories[i] : categories;
+      const estimatedMonth = Array.isArray(estimatedMonths) ? estimatedMonths[i] : estimatedMonths;
+      
+      try {
+        // Ensure category directory exists
+        const categoryPath = path.join(uploadsPath, category || 'other');
+        await fs.ensureDir(categoryPath);
+        
+        // Generate unique filename if needed
+        let filename = file.originalname;
+        let counter = 1;
+        let finalPath = path.join(categoryPath, filename);
+        
+        while (await fs.pathExists(finalPath)) {
+          const nameWithoutExt = path.parse(filename).name;
+          const ext = path.parse(filename).ext;
+          filename = `${nameWithoutExt}_${counter}${ext}`;
+          finalPath = path.join(categoryPath, filename);
+          counter++;
+        }
+        
+        // Move file from temp location to final destination
+        await fs.move(file.path, finalPath);
+        
+        uploadedFiles.push({
+          originalName: file.originalname,
+          filename,
+          category: category || 'other',
+          estimatedMonth,
+          size: file.size
+        });
+        
+        uploadedCount++;
+        console.log(`✅ Uploaded: ${filename} to ${category || 'other'}`);
+        
+      } catch (fileError) {
+        console.error(`❌ Error uploading ${file.originalname}:`, fileError);
+        errors.push({
+          filename: file.originalname,
+          error: fileError.message
+        });
+        
+        // Clean up temp file if it still exists
+        try {
+          await fs.remove(file.path);
+        } catch (cleanupError) {
+          console.error('Error cleaning up temp file:', cleanupError);
+        }
+      }
+    }
+
+    // Process uploaded files immediately
+    console.log(`🔄 Processing ${uploadedCount} newly uploaded files...`);
+    
+    // Process the uploaded files
+    const processResult = await processUploadedFiles(uploadsPath, uploadedFiles);
+    
+    res.json({
+      success: true,
+      message: `Successfully uploaded and processed ${uploadedCount} files`,
+      filesUploaded: uploadedCount,
+      uploadedFiles,
+      processedData: processResult,
+      errors: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (error) {
+    console.error('Upload processing error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing uploads',
+      error: error.message,
+      partialSuccess: uploadedCount > 0 ? {
+        filesUploaded: uploadedCount,
+        uploadedFiles
+      } : undefined
+    });
+  }
+}));
+
+// Helper function to process uploaded files
+async function processUploadedFiles(uploadsPath, uploadedFiles) {
+  try {
+    // Get only the files that were just uploaded
+    const filesToProcess = uploadedFiles.map(f => 
+      path.join(uploadsPath, f.category, f.filename)
+    );
+    
+    let parsedData = [];
+    let successfulFiles = 0;
+    
+    // Process each uploaded file
+    for (const uploadedFile of uploadedFiles) {
+      try {
+        const filePath = path.join(uploadsPath, uploadedFile.category, uploadedFile.filename);
+        const fileData = await pdfParser.processSingleFile(filePath, uploadedFile.filename);
+        
+        if (fileData) {
+          parsedData.push(fileData);
+          
+          // Save to database
+          if (fileData.fileType === 'payslip' && fileData.data?.grossPay) {
+            await db.saveIncome(fileData.data, fileData.fileName);
+            successfulFiles++;
+          } else if ((fileData.fileType === 'amex' || fileData.fileType === 'citi') 
+                     && fileData.data?.transactions) {
+            const categorizedTransactions = await Promise.all(
+              fileData.data.transactions.map(async (t) => ({
+                ...t,
+                category: await calculator.categorizeTransaction(t.description) || 'OTHER',
+                account_type: fileData.fileType
+              }))
+            );
+            
+            await db.saveTransactions(categorizedTransactions, fileData.fileName);
+            successfulFiles++;
+          }
+          
+          await db.markFileProcessed(fileData.fileName, fileData.fileType);
+        }
+      } catch (fileError) {
+        console.error(`Error processing ${uploadedFile.filename}:`, fileError);
+      }
+    }
+    
+    // Calculate monthly summaries if we have data
+    if (parsedData.length > 0) {
+      try {
+        const { monthlyData } = await calculator.calculateMonthlyData(parsedData);
+        for (const monthData of monthlyData) {
+          await db.saveMonthlySummary(monthData);
+        }
+      } catch (summaryError) {
+        console.error('Error calculating monthly summaries:', summaryError);
+      }
+    }
+    
+    return {
+      parsedFiles: parsedData.length,
+      savedFiles: successfulFiles
+    };
+    
+  } catch (error) {
+    console.error('Error in processUploadedFiles:', error);
+    throw error;
+  }
+}
+
 // Process all uploaded files
 app.post('/api/process-files', errorHandler.asyncHandler(async (req, res) => {
   const uploadsPath = path.join(__dirname, '../../uploads');
@@ -448,7 +761,7 @@ app.get('/api/ytd-analysis', async (req, res) => {
 
 // Get personalized financial insights
 app.get('/api/insights', errorHandler.asyncHandler(async (req, res) => {
-  const timeframe = req.query.timeframe || 'ytd';
+  const timeframe = req.query.timeframe || 'lastmonth';
   
   console.log(`🔍 Generating insights for timeframe: ${timeframe}`);
   
@@ -930,6 +1243,30 @@ app.delete('/api/custom-categories/:categoryName/keywords/:keyword', async (req,
   }
 });
 
+// Regenerate monthly summaries from existing database data
+app.post('/api/regenerate-summaries', errorHandler.asyncHandler(async (req, res) => {
+  try {
+    console.log('🔄 API request to regenerate monthly summaries...');
+    
+    const regeneratedSummaries = await calculator.regenerateMonthlySummariesFromDB();
+    
+    res.json({
+      success: true,
+      message: 'Monthly summaries regenerated successfully',
+      summariesCount: regeneratedSummaries.length,
+      regeneratedMonths: regeneratedSummaries.map(s => s.month)
+    });
+    
+  } catch (error) {
+    console.error('Error regenerating monthly summaries:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error regenerating monthly summaries',
+      error: error.message
+    });
+  }
+}));
+
 // Category Rules Backup & Restore
 app.get('/api/category-rules/export', errorHandler.asyncHandler(async (req, res) => {
   try {
@@ -1137,6 +1474,262 @@ app.post('/api/refresh-categories', async (req, res) => {
     });
   }
 });
+
+// File Management API endpoints
+app.get('/api/files/list', errorHandler.asyncHandler(async (req, res) => {
+  const uploadsPath = path.join(__dirname, '../../uploads');
+  
+  try {
+    if (!await fs.pathExists(uploadsPath)) {
+      return res.json({ files: {} });
+    }
+
+    const filesByCategory = {};
+    const categories = ['bank-statements', 'payslips', 'receipts', 'tax-documents', 'other'];
+    
+    for (const category of categories) {
+      const categoryPath = path.join(uploadsPath, category);
+      if (await fs.pathExists(categoryPath)) {
+        const categoryFiles = await fs.readdir(categoryPath);
+        filesByCategory[category] = [];
+        
+        for (const filename of categoryFiles) {
+          if (filename.toLowerCase().endsWith('.pdf')) {
+            const filePath = path.join(categoryPath, filename);
+            const stats = await fs.stat(filePath);
+            
+            const month = extractMonthFromFilename(filename) || 
+                         stats.mtime.toISOString().substring(0, 7);
+            
+            filesByCategory[category].push({
+              name: filename,
+              category,
+              month,
+              size: stats.size,
+              uploadDate: stats.mtime,
+              path: filePath
+            });
+          }
+        }
+        
+        // Sort files by document date (newest first), then by upload date
+        filesByCategory[category].sort((a, b) => {
+          // First, try to sort by extracted month (document date)
+          const aDate = a.month ? new Date(a.month + '-01') : new Date(a.uploadDate);
+          const bDate = b.month ? new Date(b.month + '-01') : new Date(b.uploadDate);
+          
+          // If months are the same, sort by upload date (newest first)
+          if (aDate.getTime() === bDate.getTime()) {
+            return new Date(b.uploadDate) - new Date(a.uploadDate);
+          }
+          
+          // Sort by document date (newest first)
+          return bDate - aDate;
+        });
+      } else {
+        filesByCategory[category] = [];
+      }
+    }
+    
+    res.json({ files: filesByCategory });
+  } catch (error) {
+    console.error('Error listing files:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error listing files',
+      error: error.message
+    });
+  }
+}));
+
+app.post('/api/files/rescan', errorHandler.asyncHandler(async (req, res) => {
+  const { filePath, rescanAll } = req.body;
+  
+  try {
+    if (rescanAll) {
+      // Rescan all files
+      const uploadsPath = path.join(__dirname, '../../uploads');
+      console.log('🔄 Rescanning all files...');
+      
+      const parsedData = await pdfParser.processUploadsFolder(uploadsPath, true);
+      let successfulFiles = 0;
+      
+      // Process each file
+      for (const fileData of parsedData) {
+        try {
+          if (fileData.fileType === 'payslip' && fileData.data?.grossPay) {
+            await db.saveIncome(fileData.data, fileData.fileName);
+            successfulFiles++;
+          } else if ((fileData.fileType === 'amex' || fileData.fileType === 'citi') 
+                     && fileData.data?.transactions) {
+            const categorizedTransactions = await Promise.all(
+              fileData.data.transactions.map(async (t) => ({
+                ...t,
+                category: await calculator.categorizeTransaction(t.description) || 'OTHER',
+                account_type: fileData.fileType
+              }))
+            );
+            
+            await db.saveTransactions(categorizedTransactions, fileData.fileName);
+            successfulFiles++;
+          }
+          
+          await db.markFileProcessed(fileData.fileName, fileData.fileType);
+        } catch (fileError) {
+          console.error(`Error processing file ${fileData.fileName}:`, fileError);
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Successfully rescanned ${successfulFiles} files`,
+        filesProcessed: successfulFiles
+      });
+    } else if (filePath) {
+      // Rescan single file
+      console.log(`🔄 Rescanning single file: ${filePath}`);
+      
+      const filename = path.basename(filePath);
+      const fileData = await pdfParser.processSingleFile(filePath, filename);
+      
+      if (fileData) {
+        if (fileData.fileType === 'payslip' && fileData.data?.grossPay) {
+          await db.saveIncome(fileData.data, fileData.fileName);
+        } else if ((fileData.fileType === 'amex' || fileData.fileType === 'citi') 
+                   && fileData.data?.transactions) {
+          const categorizedTransactions = await Promise.all(
+            fileData.data.transactions.map(async (t) => ({
+              ...t,
+              category: await calculator.categorizeTransaction(t.description) || 'OTHER',
+              account_type: fileData.fileType
+            }))
+          );
+          
+          await db.saveTransactions(categorizedTransactions, fileData.fileName);
+        }
+        
+        await db.markFileProcessed(fileData.fileName, fileData.fileType);
+        
+        res.json({
+          success: true,
+          message: `Successfully rescanned ${filename}`,
+          filesProcessed: 1
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: 'Failed to parse file'
+        });
+      }
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Either filePath or rescanAll must be provided'
+      });
+    }
+  } catch (error) {
+    console.error('Error rescanning files:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error rescanning files',
+      error: error.message
+    });
+  }
+}));
+
+app.delete('/api/files/delete', errorHandler.asyncHandler(async (req, res) => {
+  const { filePath, deleteAll, category } = req.body;
+  
+  try {
+    if (deleteAll) {
+      // Delete all files in a category or all files
+      const uploadsPath = path.join(__dirname, '../../uploads');
+      let deletedCount = 0;
+      
+      if (category) {
+        // Delete all files in specific category
+        const categoryPath = path.join(uploadsPath, category);
+        if (await fs.pathExists(categoryPath)) {
+          const files = await fs.readdir(categoryPath);
+          for (const filename of files) {
+            if (filename.toLowerCase().endsWith('.pdf')) {
+              const filePath = path.join(categoryPath, filename);
+              await fs.remove(filePath);
+              
+              // Remove from database tracking
+              await db.removeFileProcessed(filename);
+              deletedCount++;
+            }
+          }
+        }
+        
+        res.json({
+          success: true,
+          message: `Successfully deleted ${deletedCount} files from ${category} category`,
+          filesDeleted: deletedCount
+        });
+      } else {
+        // Delete all files from all categories
+        const categories = ['bank-statements', 'payslips', 'receipts', 'tax-documents', 'other'];
+        
+        for (const cat of categories) {
+          const categoryPath = path.join(uploadsPath, cat);
+          if (await fs.pathExists(categoryPath)) {
+            const files = await fs.readdir(categoryPath);
+            for (const filename of files) {
+              if (filename.toLowerCase().endsWith('.pdf')) {
+                const filePath = path.join(categoryPath, filename);
+                await fs.remove(filePath);
+                
+                // Remove from database tracking
+                await db.removeFileProcessed(filename);
+                deletedCount++;
+              }
+            }
+          }
+        }
+        
+        res.json({
+          success: true,
+          message: `Successfully deleted ${deletedCount} files from all categories`,
+          filesDeleted: deletedCount
+        });
+      }
+    } else if (filePath) {
+      // Delete single file
+      if (await fs.pathExists(filePath)) {
+        const filename = path.basename(filePath);
+        await fs.remove(filePath);
+        
+        // Remove from database tracking
+        await db.removeFileProcessed(filename);
+        
+        res.json({
+          success: true,
+          message: `Successfully deleted ${filename}`,
+          filesDeleted: 1
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          message: 'File not found'
+        });
+      }
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Either filePath or deleteAll must be provided'
+      });
+    }
+  } catch (error) {
+    console.error('Error deleting files:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting files',
+      error: error.message
+    });
+  }
+}));
 
 // Category trend analysis endpoints
 app.post('/api/category-trends', async (req, res) => {

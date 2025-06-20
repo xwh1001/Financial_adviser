@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CategoryRulesManager from './CategoryRulesManager';
 import CategoryRuleBackup from './CategoryRuleBackup';
 import ProgressDialog from './ProgressDialog';
+import FileManagement from './FileManagement';
 
 const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
   const [activeTab, setActiveTab] = useState('house-goal');
@@ -213,7 +214,8 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
               {[
                 { id: 'house-goal', label: '🏠 House Goal', emoji: '🏠' },
                 { id: 'balance', label: '💰 Balance Management', emoji: '💰' },
-                { id: 'categories', label: '🏷️ Category Rules', emoji: '🏷️' }
+                { id: 'categories', label: '🏷️ Category Rules', emoji: '🏷️' },
+                { id: 'files', label: '📁 File Management', emoji: '📁' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -537,6 +539,11 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
                     progressDialog={progressDialog}
                     setProgressDialog={setProgressDialog}
                   />
+                )}
+
+                {/* File Management */}
+                {activeTab === 'files' && (
+                  <FileManagement />
                 )}
               </>
             )}

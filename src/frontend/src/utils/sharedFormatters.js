@@ -1,5 +1,6 @@
 /**
- * Frontend formatting utilities - mirrors backend formatters for consistency
+ * Frontend formatting utilities - identical to backend shared formatters
+ * Duplicated here to avoid require/import compatibility issues between Node.js and browser
  */
 
 export const formatCurrency = (amount, currency = 'AUD', locale = 'en-AU') => {

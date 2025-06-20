@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { formatCurrency, formatPercentage } from '../utils/formatters';
+import { formatCurrency, formatPercentage } from '../utils/sharedFormatters';
 
 const Insights = ({ dashboardData }) => {
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [timeframe, setTimeframe] = useState('ytd');
+  const [timeframe, setTimeframe] = useState('lastmonth');
 
   useEffect(() => {
     loadInsights();
@@ -98,9 +98,10 @@ const Insights = ({ dashboardData }) => {
             border: '1px solid #ddd'
           }}
         >
-          <option value="ytd">Year to Date</option>
-          <option value="last6months">Last 6 Months</option>
+          <option value="lastmonth">Last Month</option>
           <option value="last3months">Last 3 Months</option>
+          <option value="last6months">Last 6 Months</option>
+          <option value="ytd">Year to Date</option>
         </select>
       </div>
 

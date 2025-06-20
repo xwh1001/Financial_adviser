@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs-extra');
+const DateFilter = require('./utils/dateFilter');
 
 class Database {
     constructor() {
@@ -358,6 +359,11 @@ class Database {
         console.log('🗑️  Cleared all processed files from database');
     }
 
+    async removeFileProcessed(filename) {
+        await this.run('DELETE FROM parsed_files WHERE filename = ?', [filename]);
+        console.log(`🗑️  Removed file from processed tracking: ${filename}`);
+    }
+
     async getYTDSummary(year = new Date().getFullYear()) {
         const transactions = await this.all(
             `SELECT * FROM transactions 
@@ -414,26 +420,25 @@ class Database {
     }
 
     async getTransactionsByMonths(months) {
-        // Convert months array to SQL conditions
-        const monthConditions = months.map(() => 'date LIKE ?').join(' OR ');
-        const monthParams = months.map(month => `${month}%`);
+        // Use centralized date filtering for consistency
+        const { conditions, params } = DateFilter.generateSQLConditions(months, 'date');
         
-        const sql = `SELECT * FROM transactions WHERE ${monthConditions} ORDER BY date DESC`;
-        const transactions = await this.all(sql, monthParams);
+        const sql = `SELECT * FROM transactions WHERE (${conditions}) ORDER BY date DESC`;
+        const transactions = await this.all(sql, params);
         return await this.applyCategoryOverridesToTransactions(transactions);
     }
 
     async getTransactionsByCategoryAndMonths(category, months) {
-        // Convert months array to SQL conditions
-        const monthConditions = months.map(() => 't.date LIKE ?').join(' OR ');
-        const params = [category, ...months.map(month => `${month}%`)];
+        // Use centralized date filtering for consistency
+        const { conditions, params: dateParams } = DateFilter.generateSQLConditions(months, 't.date');
+        const params = [category, ...dateParams]; // Category first, then date parameters
         
         const sql = `
             SELECT DISTINCT t.id, t.date, t.description, t.amount, t.account_type, t.category, t.transaction_hash,
                    COALESCE(o.override_category, t.category) as effective_category
             FROM transactions t
             LEFT JOIN transaction_category_overrides o ON t.transaction_hash = o.transaction_hash
-            WHERE COALESCE(o.override_category, t.category) = ? AND (${monthConditions})
+            WHERE COALESCE(o.override_category, t.category) = ? AND (${conditions})
             ORDER BY t.date DESC
         `;
         const transactions = await this.all(sql, params);

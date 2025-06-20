@@ -226,6 +226,88 @@ class FinancialCalculator {
         };
     }
 
+    async regenerateMonthlySummariesFromDB() {
+        console.log('🔄 Regenerating monthly summaries from existing database data...');
+        
+        if (!this.database) {
+            throw new Error('Database connection required for regenerating summaries');
+        }
+        
+        // Get all transactions and income from database
+        const ytdData = await this.database.getYTDSummary();
+        const transactions = ytdData.transactions || [];
+        const incomeRecords = ytdData.income || [];
+        
+        console.log(`Found ${transactions.length} transactions and ${incomeRecords.length} income records`);
+        
+        const monthlyData = {};
+        
+        // Process income records first
+        incomeRecords.forEach(income => {
+            const date = new Date(income.pay_period_end);
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            
+            if (!monthlyData[monthKey]) {
+                monthlyData[monthKey] = {
+                    month: monthKey,
+                    totalIncome: 0,
+                    totalExpenses: 0,
+                    netSavings: 0,
+                    savingsRate: 0,
+                    categories: {},
+                    transactionCount: 0
+                };
+            }
+            
+            // Use net_pay as the actual income
+            monthlyData[monthKey].totalIncome += income.net_pay || 0;
+            
+            console.log(`Added income for ${monthKey}: $${income.net_pay}`);
+        });
+        
+        // Process transactions
+        for (const transaction of transactions) {
+            const date = new Date(transaction.date);
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            
+            if (!monthlyData[monthKey]) {
+                monthlyData[monthKey] = {
+                    month: monthKey,
+                    totalIncome: 0,
+                    totalExpenses: 0,
+                    netSavings: 0,
+                    savingsRate: 0,
+                    categories: {},
+                    transactionCount: 0
+                };
+            }
+            
+            const category = transaction.category || 'OTHER';
+            
+            monthlyData[monthKey].totalExpenses += transaction.amount;
+            monthlyData[monthKey].categories[category] = (monthlyData[monthKey].categories[category] || 0) + transaction.amount;
+            monthlyData[monthKey].transactionCount++;
+        }
+        
+        // Calculate savings and savings rate for each month
+        Object.values(monthlyData).forEach(month => {
+            month.netSavings = month.totalIncome - month.totalExpenses;
+            month.savingsRate = month.totalIncome > 0 ? (month.netSavings / month.totalIncome) * 100 : 0;
+        });
+        
+        // Save all monthly summaries to database
+        const summaryCount = Object.values(monthlyData).length;
+        console.log(`Saving ${summaryCount} monthly summaries to database...`);
+        
+        for (const monthData of Object.values(monthlyData)) {
+            await this.database.saveMonthlySummary(monthData);
+            console.log(`Saved summary for ${monthData.month}: Income $${monthData.totalIncome.toFixed(2)}, Expenses $${monthData.totalExpenses.toFixed(2)}`);
+        }
+        
+        console.log('✅ Monthly summaries regeneration complete');
+        return Object.values(monthlyData);
+    }
+
     calculateProjections(ytdSummary, targetSavings = 117000) {
         const { savingsRate, monthlyAverageIncome, netSavings } = ytdSummary;
         const monthlySavings = netSavings / Math.max(1, ytdSummary.monthsIncluded);

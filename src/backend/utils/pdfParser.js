@@ -177,6 +177,38 @@ class PDFParser {
             return [];
         }
     }
+
+    /**
+     * Process a single file that was just uploaded
+     * @param {string} filePath - Full path to the file
+     * @param {string} fileName - Original filename
+     * @returns {Object|null} Parsed file data or null if parsing failed
+     */
+    async processSingleFile(filePath, fileName) {
+        try {
+            console.log(`🔄 Processing single file: ${fileName}`);
+            
+            // Check if file exists
+            if (!await fs.pathExists(filePath)) {
+                throw new Error(`File not found: ${filePath}`);
+            }
+            
+            // Parse the PDF
+            const result = await this.parsePDF(filePath);
+            
+            if (result && result.data) {
+                console.log(`✅ Successfully parsed: ${fileName}`);
+                return result;
+            } else {
+                console.warn(`⚠️  No data extracted from: ${fileName}`);
+                return null;
+            }
+            
+        } catch (error) {
+            console.error(`❌ Error processing single file ${fileName}:`, error.message);
+            return null;
+        }
+    }
 }
 
 module.exports = PDFParser;
