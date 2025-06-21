@@ -306,6 +306,12 @@ const Insights = ({ dashboardData }) => {
             <div key={index} className="card budget-recommendation">
               <h4>{recommendation.title}</h4>
               
+              {recommendation.type === 'no_income_data' && (
+                <div className="no-income-data">
+                  <p>{recommendation.message}</p>
+                </div>
+              )}
+
               {recommendation.type === 'budget_framework' && (
                 <div className="budget-framework">
                   <div className="budget-comparison">
@@ -313,15 +319,15 @@ const Insights = ({ dashboardData }) => {
                       <h5>Your Current Budget</h5>
                       <div className="budget-item">
                         <span>Needs: {formatCurrency(recommendation.current.needs)}</span>
-                        <span>({recommendation.current.needsPercentage.toFixed(1)}%)</span>
+                        <span>({(recommendation.current.needsPercentage || 0).toFixed(1)}%)</span>
                       </div>
                       <div className="budget-item">
                         <span>Wants: {formatCurrency(recommendation.current.wants)}</span>
-                        <span>({recommendation.current.wantsPercentage.toFixed(1)}%)</span>
+                        <span>({(recommendation.current.wantsPercentage || 0).toFixed(1)}%)</span>
                       </div>
                       <div className="budget-item">
                         <span>Savings: {formatCurrency(recommendation.current.savings)}</span>
-                        <span>({recommendation.current.savingsPercentage.toFixed(1)}%)</span>
+                        <span>({(recommendation.current.savingsPercentage || 0).toFixed(1)}%)</span>
                       </div>
                     </div>
                     

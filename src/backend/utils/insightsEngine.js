@@ -254,7 +254,17 @@ class FinancialInsightsEngine {
   async generateBudgetRecommendations(userData) {
     const recommendations = [];
     const { totalIncome, savingsRate } = userData.summary;
-    const monthlyIncome = totalIncome / userData.summary.monthsWithData;
+    const monthsWithData = userData.summary.monthsWithData || 1;
+    const monthlyIncome = (totalIncome && monthsWithData > 0) ? totalIncome / monthsWithData : 0;
+
+    // Skip budget recommendations if there's no income data
+    if (monthlyIncome <= 0) {
+      return [{
+        type: 'no_income_data',
+        title: 'Income Data Required',
+        message: 'Upload payslips or add income information to get budget recommendations'
+      }];
+    }
 
     // 50/30/20 rule assessment
     const idealBudget = {
@@ -268,6 +278,11 @@ class FinancialInsightsEngine {
     const wants = this.calculateWantsSpending(userData.monthlyAverages);
     const currentSavings = monthlyIncome - needs - wants;
 
+    // Calculate percentages with null checks
+    const needsPercentage = monthlyIncome > 0 ? (needs / monthlyIncome) * 100 : 0;
+    const wantsPercentage = monthlyIncome > 0 ? (wants / monthlyIncome) * 100 : 0;
+    const savingsPercentage = monthlyIncome > 0 ? (currentSavings / monthlyIncome) * 100 : 0;
+
     recommendations.push({
       type: 'budget_framework',
       title: '50/30/20 Budget Analysis',
@@ -275,9 +290,9 @@ class FinancialInsightsEngine {
         needs: needs,
         wants: wants,
         savings: currentSavings,
-        needsPercentage: (needs / monthlyIncome) * 100,
-        wantsPercentage: (wants / monthlyIncome) * 100,
-        savingsPercentage: (currentSavings / monthlyIncome) * 100
+        needsPercentage: isFinite(needsPercentage) ? needsPercentage : 0,
+        wantsPercentage: isFinite(wantsPercentage) ? wantsPercentage : 0,
+        savingsPercentage: isFinite(savingsPercentage) ? savingsPercentage : 0
       },
       ideal: {
         needs: idealBudget.needs,
