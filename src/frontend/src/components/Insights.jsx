@@ -16,7 +16,16 @@ const Insights = ({ dashboardData }) => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`/api/insights?timeframe=${timeframe}`);
+      // Get user's timezone and current date in their timezone
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const userDate = new Date().toLocaleString('en-CA', { 
+        timeZone: userTimezone, 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit' 
+      });
+      
+      const response = await fetch(`/api/insights?timeframe=${timeframe}&userTimezone=${encodeURIComponent(userTimezone)}&userDate=${userDate}`);
       
       if (!response.ok) {
         throw new Error('Failed to load insights');
@@ -228,6 +237,24 @@ const Insights = ({ dashboardData }) => {
               );
             })}
           </div>
+          
+          {/* Benchmark Source Information */}
+          {insights.australianComparison._benchmark_source && (
+            <div className="card" style={{ marginTop: '1rem', background: '#f8f9fa', border: '1px solid #e9ecef' }}>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                <h5 style={{ margin: '0 0 0.5rem 0', color: '#495057' }}>📊 Benchmark Data Source</h5>
+                <div><strong>Source:</strong> {insights.australianComparison._benchmark_source.source}</div>
+                <div><strong>Period:</strong> {insights.australianComparison._benchmark_source.period}</div>
+                <div><strong>Last Updated:</strong> {insights.australianComparison._benchmark_source.last_updated}</div>
+                {insights.australianComparison._metadata && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <strong>Your Location:</strong> {insights.australianComparison._metadata.location} 
+                    {insights.australianComparison._metadata.city && ` (${insights.australianComparison._metadata.city})`}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

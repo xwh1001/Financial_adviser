@@ -762,10 +762,16 @@ app.get('/api/ytd-analysis', async (req, res) => {
 // Get personalized financial insights
 app.get('/api/insights', errorHandler.asyncHandler(async (req, res) => {
   const timeframe = req.query.timeframe || 'lastmonth';
+  const userTimezone = req.query.userTimezone || 'Australia/Sydney'; // Default to Australian timezone
+  const userDate = req.query.userDate; // Current date in user's timezone (YYYY-MM-DD format)
   
-  console.log(`🔍 Generating insights for timeframe: ${timeframe}`);
+  // Get user's location settings for ABS benchmarks
+  const userLocation = await db.getUserSetting('user_location') || 'victoria';
+  const userCity = await db.getUserSetting('user_city') || 'melbourne';
   
-  const insights = await insightsEngine.generatePersonalizedInsights(timeframe);
+  console.log(`🔍 Generating insights for timeframe: ${timeframe}, location: ${userLocation}, city: ${userCity}, timezone: ${userTimezone}, date: ${userDate}`);
+  
+  const insights = await insightsEngine.generatePersonalizedInsights(timeframe, userTimezone, userDate, userLocation, userCity);
   
   res.json({
     success: true,
@@ -1734,7 +1740,7 @@ app.delete('/api/files/delete', errorHandler.asyncHandler(async (req, res) => {
 // Category trend analysis endpoints
 app.post('/api/category-trends', async (req, res) => {
   try {
-    const { categories } = req.body;
+    const { categories, startDate, endDate } = req.body;
     
     if (!categories || categories.length === 0) {
       return res.json({ trends: [] });
@@ -1743,8 +1749,8 @@ app.post('/api/category-trends', async (req, res) => {
     const trends = [];
     
     for (const category of categories) {
-      // Get monthly data for this category across all months
-      const monthlyData = await db.getCategoryMonthlyTrends(category);
+      // Get monthly data for this category with timezone-aware date filtering
+      const monthlyData = await db.getCategoryMonthlyTrends(category, startDate, endDate);
       trends.push({
         category: category,
         monthlyData: monthlyData
@@ -1764,13 +1770,13 @@ app.post('/api/category-trends', async (req, res) => {
 
 app.post('/api/transactions-by-categories', async (req, res) => {
   try {
-    const { categories } = req.body;
+    const { categories, startDate, endDate } = req.body;
     
     if (!categories || categories.length === 0) {
       return res.json({ transactions: [] });
     }
     
-    const transactions = await db.getTransactionsByCategories(categories);
+    const transactions = await db.getTransactionsByCategories(categories, startDate, endDate);
     
     res.json({ 
       transactions: transactions,

@@ -1,5 +1,6 @@
 const Formatters = require('../../shared/utils/formatters');
 const DateFilter = require('./dateFilter');
+const BenchmarkService = require('../services/benchmarkService');
 
 /**
  * Financial Insights Engine - Provides personalized spending insights and money-saving recommendations
@@ -9,36 +10,20 @@ class FinancialInsightsEngine {
   constructor(database) {
     this.db = database;
     
-    // Australian spending benchmarks (monthly averages)
-    this.australianBenchmarks = {
-      'GROCERIES': { low: 400, medium: 600, high: 800 },
-      'DINING_OUT': { low: 200, medium: 400, high: 600 },
-      'TRANSPORT_FUEL': { low: 200, medium: 300, high: 450 },
-      'UTILITIES_ENERGY': { low: 150, medium: 250, high: 350 },
-      'ENTERTAINMENT_STREAMING': { low: 30, medium: 60, high: 100 },
-      'TRANSPORT_PUBLIC': { low: 100, medium: 200, high: 300 },
-      'SHOPPING_CLOTHING': { low: 100, medium: 250, high: 500 }
-    };
-
-    // City cost of living multipliers
-    this.cityMultipliers = {
-      'sydney': 1.15,
-      'melbourne': 1.10,
-      'brisbane': 1.05,
-      'perth': 1.05,
-      'adelaide': 1.00,
-      'canberra': 1.12,
-      'darwin': 1.08,
-      'hobart': 0.95
-    };
+    // Initialize ABS benchmark service for official Australian data
+    this.benchmarkService = new BenchmarkService();
+    
+    // Default user location (can be customized per user in future)
+    this.defaultLocation = 'victoria';
+    this.defaultCity = 'melbourne';
   }
 
   /**
    * Generate comprehensive personalized insights
    */
-  async generatePersonalizedInsights(timeframe = 'ytd') {
+  async generatePersonalizedInsights(timeframe = 'ytd', userTimezone = 'Australia/Sydney', userDate = null, userLocation = null, userCity = null) {
     try {
-      const userData = await this.getUserFinancialData(timeframe);
+      const userData = await this.getUserFinancialData(timeframe, userTimezone, userDate);
       
       if (!userData || userData.totalTransactions === 0) {
         return this.getEmptyStateInsights();
@@ -50,7 +35,7 @@ class FinancialInsightsEngine {
         spendingPatterns: await this.analyzeSpendingPatterns(userData),
         savingsOpportunities: await this.identifySavingsOpportunities(userData),
         budgetRecommendations: await this.generateBudgetRecommendations(userData),
-        australianComparison: this.compareToAustralianAverages(userData),
+        australianComparison: this.compareToAustralianAverages(userData, userLocation, userCity),
         actionPlan: await this.createActionPlan(userData),
         metadata: {
           analysisDate: new Date().toISOString(),
@@ -70,20 +55,16 @@ class FinancialInsightsEngine {
   /**
    * Get user financial data for analysis
    */
-  async getUserFinancialData(timeframe) {
+  async getUserFinancialData(timeframe, userTimezone = 'Australia/Sydney', userDate = null) {
     const ytdData = await this.db.getYTDSummary();
     
     if (!ytdData || !ytdData.transactions.length) {
       return null;
     }
 
-    // Special handling for 'lastmonth' to use monthly summary data for consistency
-    if (timeframe === 'lastmonth') {
-      return DateFilter.getLastMonthFromSummaries(ytdData);
-    }
-
-    // Convert timeframe to months for consistent filtering
-    const months = DateFilter.timeframeToMonths(timeframe);
+    // Convert timeframe to months for consistent filtering using user's timezone
+    // Note: Always use transaction-level filtering to ensure we have individual transactions for insights
+    const months = DateFilter.timeframeToMonths(timeframe, userTimezone, userDate);
     if (!months.length) {
       return null;
     }
@@ -218,7 +199,8 @@ class FinancialInsightsEngine {
 
     // Energy efficiency
     const energy = userData.monthlyAverages['UTILITIES_ENERGY'] || 0;
-    const benchmark = this.australianBenchmarks['UTILITIES_ENERGY'].medium;
+    const energyBenchmarks = this.benchmarkService.getBenchmarks(this.defaultLocation, this.defaultCity);
+    const benchmark = energyBenchmarks['UTILITIES_ENERGY'] ? energyBenchmarks['UTILITIES_ENERGY'].amount : 250;
     
     if (energy > benchmark * 1.3) {
       const potentialSavings = energy * 0.25;
@@ -315,28 +297,24 @@ class FinancialInsightsEngine {
   /**
    * Compare to Australian averages
    */
-  compareToAustralianAverages(userData) {
-    const comparisons = {};
-
-    Object.entries(this.australianBenchmarks).forEach(([category, benchmarks]) => {
-      const userSpending = userData.monthlyAverages[category] || 0;
-      
-      let performance = 'average';
-      if (userSpending <= benchmarks.low) performance = 'excellent';
-      else if (userSpending <= benchmarks.medium) performance = 'good';
-      else if (userSpending <= benchmarks.high) performance = 'average';
-      else performance = 'high';
-
-      comparisons[category] = {
-        userSpending,
-        benchmark: benchmarks.medium,
-        performance,
-        percentile: this.calculatePercentile(userSpending, benchmarks),
-        savings: userSpending > benchmarks.medium ? userSpending - benchmarks.medium : 0
-      };
-    });
-
-    return comparisons;
+  compareToAustralianAverages(userData, userLocation = null, userCity = null) {
+    // Use provided location or defaults
+    const location = userLocation || this.defaultLocation;
+    const city = userCity || this.defaultCity;
+    
+    // Get comprehensive comparison using ABS benchmark service
+    const comparison = this.benchmarkService.compareAllCategories(
+      userData.monthlyAverages, 
+      location, 
+      city
+    );
+    
+    // Return just the categories for backward compatibility, but add metadata
+    const result = comparison.categories;
+    result._metadata = comparison.summary;
+    result._benchmark_source = this.benchmarkService.getBenchmarkMetadata();
+    
+    return result;
   }
 
   /**
@@ -409,12 +387,7 @@ class FinancialInsightsEngine {
     }, 0);
   }
 
-  calculatePercentile(value, benchmarks) {
-    if (value <= benchmarks.low) return 25;
-    if (value <= benchmarks.medium) return 50;
-    if (value <= benchmarks.high) return 75;
-    return 90;
-  }
+  // Note: calculatePercentile is now handled by BenchmarkService
 
   getDifficultyMultiplier(difficulty) {
     const multipliers = { easy: 1, medium: 2, hard: 3 };
@@ -440,7 +413,9 @@ class FinancialInsightsEngine {
     // Top spending insight
     if (patterns.topCategories.length > 0) {
       const topCategory = patterns.topCategories[0];
-      const percentage = (topCategory.amount / userData.summary.totalExpenses) * 100;
+      const percentage = (userData.summary.totalExpenses && userData.summary.totalExpenses > 0) 
+        ? (topCategory.amount / userData.summary.totalExpenses) * 100 
+        : 0;
       
       insights.push({
         type: 'top_spending',

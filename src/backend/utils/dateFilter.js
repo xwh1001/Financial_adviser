@@ -3,31 +3,73 @@
  * 
  * This module provides consistent date filtering logic for both Monthly Analysis
  * and INSIGHTS to ensure data consistency across the application.
+ * 
+ * Handles timezone conversion for GMT+10 (Australia/Sydney) to ensure accurate
+ * date filtering for financial data.
  */
 
 class DateFilter {
+  // Australia/Sydney timezone offset (GMT+10 standard, GMT+11 during DST)
+  static TIMEZONE_OFFSET = '+10:00';
+  
   /**
-   * Get the start and end dates for a specific month
+   * Convert UTC date to Australian local date for filtering
+   * @param {string} utcDateString - UTC date string from database
+   * @returns {string} Local date in YYYY-MM-DD format
+   */
+  static utcToLocalDate(utcDateString) {
+    const utcDate = new Date(utcDateString);
+    // Convert to GMT+10 by adding 10 hours
+    const localDate = new Date(utcDate.getTime() + (10 * 60 * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  }
+  
+  /**
+   * Convert local date to UTC boundaries for database queries
+   * @param {string} localDate - Local date in YYYY-MM-DD format
+   * @returns {Object} { startUTC, endUTC } in ISO format
+   */
+  static localDateToUTCBoundaries(localDate) {
+    // Start of day in GMT+10 = subtract 10 hours for UTC
+    const startLocal = new Date(localDate + 'T00:00:00+10:00');
+    const endLocal = new Date(localDate + 'T23:59:59.999+10:00');
+    
+    return {
+      startUTC: startLocal.toISOString(),
+      endUTC: endLocal.toISOString()
+    };
+  }
+  /**
+   * Get the start and end dates for a specific month (timezone-aware)
    * @param {string} month - Month in YYYY-MM format (e.g., "2025-04")
-   * @returns {Object} { startDate, endDate } in YYYY-MM-DD format
+   * @returns {Object} { startDate, endDate, startUTC, endUTC } 
    */
   static getMonthBoundaries(month) {
     const [year, monthNum] = month.split('-');
     const yearInt = parseInt(year);
     const monthInt = parseInt(monthNum);
     
-    // First day of the month
+    // First day of the month (local)
     const startDate = `${year}-${monthNum}-01`;
     
-    // Last day of the month
+    // Last day of the month (local)
     const lastDayNum = new Date(yearInt, monthInt, 0).getDate();
     const endDate = `${year}-${monthNum}-${String(lastDayNum).padStart(2, '0')}`;
     
-    return { startDate, endDate };
+    // Convert to UTC boundaries for accurate database queries
+    const startBoundaries = this.localDateToUTCBoundaries(startDate);
+    const endBoundaries = this.localDateToUTCBoundaries(endDate);
+    
+    return { 
+      startDate, 
+      endDate,
+      startUTC: startBoundaries.startUTC,
+      endUTC: endBoundaries.endUTC
+    };
   }
 
   /**
-   * Get filtered transactions for specific months from raw transaction data
+   * Get filtered transactions for specific months from raw transaction data (timezone-aware)
    * @param {Array} transactions - Array of transaction objects
    * @param {Array} months - Array of month strings in YYYY-MM format
    * @returns {Array} Filtered transactions
@@ -38,14 +80,15 @@ class DateFilter {
     }
 
     return transactions.filter(transaction => {
-      const txnDate = new Date(transaction.date);
-      const txnMonth = `${txnDate.getFullYear()}-${String(txnDate.getMonth() + 1).padStart(2, '0')}`;
+      // Convert UTC date to local date for accurate month comparison
+      const localDate = this.utcToLocalDate(transaction.date);
+      const txnMonth = localDate.substring(0, 7); // Extract YYYY-MM
       return months.includes(txnMonth);
     });
   }
 
   /**
-   * Get filtered income records for specific months
+   * Get filtered income records for specific months (timezone-aware)
    * @param {Array} incomeRecords - Array of income objects
    * @param {Array} months - Array of month strings in YYYY-MM format
    * @returns {Array} Filtered income records
@@ -56,14 +99,16 @@ class DateFilter {
     }
 
     return incomeRecords.filter(income => {
-      const payDate = new Date(income.pay_period_end || income.pay_period_start);
-      const incomeMonth = `${payDate.getFullYear()}-${String(payDate.getMonth() + 1).padStart(2, '0')}`;
+      const payDateUTC = income.pay_period_end || income.pay_period_start;
+      // Convert UTC to local date for accurate month comparison
+      const localDate = this.utcToLocalDate(payDateUTC);
+      const incomeMonth = localDate.substring(0, 7); // Extract YYYY-MM
       return months.includes(incomeMonth);
     });
   }
 
   /**
-   * Generate SQL conditions for filtering by months (for database queries)
+   * Generate SQL conditions for filtering by months (timezone-aware database queries)
    * @param {Array} months - Array of month strings in YYYY-MM format
    * @param {string} dateColumn - Name of the date column (default: 'date')
    * @returns {Object} { conditions, params } for SQL query
@@ -77,9 +122,10 @@ class DateFilter {
     const params = [];
 
     months.forEach(month => {
-      const { startDate, endDate } = this.getMonthBoundaries(month);
-      conditions.push(`(date(${dateColumn}) >= ? AND date(${dateColumn}) <= ?)`);
-      params.push(startDate, endDate);
+      const { startUTC, endUTC } = this.getMonthBoundaries(month);
+      // Compare directly with UTC timestamps stored in database
+      conditions.push(`(${dateColumn} >= ? AND ${dateColumn} <= ?)`);
+      params.push(startUTC, endUTC);
     });
 
     return {
@@ -108,11 +154,11 @@ class DateFilter {
     const netSavings = totalIncome - totalExpenses;
     const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) : 0;
 
-    // Get unique months for monthsWithData calculation
+    // Get unique months for monthsWithData calculation (timezone-aware)
     const monthsWithData = new Set();
     transactions.forEach(txn => {
-      const txnDate = new Date(txn.date);
-      const monthKey = `${txnDate.getFullYear()}-${String(txnDate.getMonth() + 1).padStart(2, '0')}`;
+      const localDate = this.utcToLocalDate(txn.date);
+      const monthKey = localDate.substring(0, 7); // Extract YYYY-MM
       monthsWithData.add(monthKey);
     });
 
@@ -140,11 +186,24 @@ class DateFilter {
   /**
    * Handle special "lastmonth" timeframe to get data from monthly summaries
    * @param {Object} ytdData - YTD data from database
+   * @param {string} userTimezone - User's timezone (default: Australia/Sydney)
+   * @param {string} userDate - Current date in user's timezone (YYYY-MM-DD format)
    * @returns {Object} Last month data consistent with monthly summaries
    */
-  static getLastMonthFromSummaries(ytdData) {
-    const now = new Date();
-    const lastMonthKey = `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`;
+  static getLastMonthFromSummaries(ytdData, userTimezone = 'Australia/Sydney', userDate = null) {
+    // Use user's current date if provided, otherwise calculate from their timezone
+    let now;
+    if (userDate) {
+      now = new Date(userDate + 'T12:00:00'); // Noon to avoid timezone edge cases
+    } else {
+      now = new Date();
+      // Convert to user's timezone
+      now = new Date(now.toLocaleString('en-US', { timeZone: userTimezone }));
+    }
+    
+    const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1; // JS months are 0-indexed
+    const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const lastMonthKey = `${lastMonthYear}-${String(lastMonth + 1).padStart(2, '0')}`; // Convert back to 1-indexed
     
     // Find the monthly summary for last month
     const lastMonthSummary = ytdData.monthlySummaries.find(summary => summary.month === lastMonthKey);
@@ -192,10 +251,21 @@ class DateFilter {
   /**
    * Convert timeframe strings to month arrays for consistent filtering
    * @param {string} timeframe - Timeframe identifier (lastmonth, last3months, etc.)
+   * @param {string} userTimezone - User's timezone (default: Australia/Sydney)
+   * @param {string} userDate - Current date in user's timezone (YYYY-MM-DD format)
    * @returns {Array} Array of month strings in YYYY-MM format
    */
-  static timeframeToMonths(timeframe) {
-    const now = new Date();
+  static timeframeToMonths(timeframe, userTimezone = 'Australia/Sydney', userDate = null) {
+    // Use user's current date if provided, otherwise calculate from their timezone
+    let now;
+    if (userDate) {
+      now = new Date(userDate + 'T12:00:00'); // Noon to avoid timezone edge cases
+    } else {
+      now = new Date();
+      // Convert to user's timezone
+      now = new Date(now.toLocaleString('en-US', { timeZone: userTimezone }));
+    }
+    
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1; // JS months are 0-indexed
     

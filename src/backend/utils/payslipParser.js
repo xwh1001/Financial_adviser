@@ -1,5 +1,6 @@
 const fs = require('fs-extra');
 const pdf = require('pdf-parse');
+const DateUtils = require('./dateUtils');
 
 class PayslipParser {
     constructor(database = null) {
@@ -120,17 +121,9 @@ class PayslipParser {
     }
 
     parseDate(dateStr) {
-        if (!dateStr) return null;
-        
-        // Handle both DD.MM.YYYY and DD/MM/YYYY formats
-        const parts = dateStr.split(/[\.\/]/);
-        if (parts.length === 3) {
-            const day = parseInt(parts[0]);
-            const month = parseInt(parts[1]) - 1; // JavaScript months are 0-indexed
-            const year = parseInt(parts[2]);
-            return new Date(year, month, day).toISOString();
-        }
-        return null;
+        // Use standardized date parsing for Australian timezone
+        const date = DateUtils.parseAustralianDate(dateStr);
+        return date ? DateUtils.toISOString(date) : null;
     }
 
     // Method to extract detailed pay items (for future enhancement)

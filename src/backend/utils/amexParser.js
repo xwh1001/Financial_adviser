@@ -1,6 +1,7 @@
 const fs = require('fs-extra');
 const pdf = require('pdf-parse');
 const FinancialCalculator = require('./financialCalculator');
+const DateUtils = require('./dateUtils');
 
 class AmexParser {
     constructor(database = null) {
@@ -106,7 +107,8 @@ class AmexParser {
                 }
             }
             
-            const date = new Date(transactionYear, month - 1, day);
+            // Create date in Australian timezone using standardized utility
+            const date = DateUtils.createAustralianDate(transactionYear, month, day);
             
             // Categorize transaction
             const category = await this.financialCalculator.categorizeTransaction(t.description);

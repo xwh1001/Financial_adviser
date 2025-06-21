@@ -570,36 +570,55 @@ class Database {
     }
 
     // Category trend analysis methods
-    async getCategoryMonthlyTrends(category) {
-        const sql = `
+    async getCategoryMonthlyTrends(category, startDate = null, endDate = null) {
+        let sql = `
             SELECT 
-                strftime('%Y-%m', t.date) as month,
+                strftime('%Y-%m', datetime(t.date, '+10 hours')) as month,
                 SUM(t.amount) as amount,
                 COUNT(*) as transaction_count
             FROM transactions t
             LEFT JOIN transaction_category_overrides o ON t.transaction_hash = o.transaction_hash
             WHERE COALESCE(o.override_category, t.category) = ?
-            GROUP BY strftime('%Y-%m', t.date) 
-            ORDER BY month
         `;
-        return await this.all(sql, [category]);
+        
+        const params = [category];
+        
+        // Add timezone-aware date filtering if provided
+        if (startDate && endDate) {
+            sql += ` AND t.date >= ? AND t.date <= ?`;
+            params.push(startDate, endDate);
+        }
+        
+        sql += ` GROUP BY strftime('%Y-%m', datetime(t.date, '+10 hours')) ORDER BY month`;
+        
+        return await this.all(sql, params);
     }
 
-    async getTransactionsByCategories(categories) {
+    async getTransactionsByCategories(categories, startDate = null, endDate = null) {
         if (!categories || categories.length === 0) {
             return [];
         }
         
         const placeholders = categories.map(() => '?').join(',');
-        const sql = `
+        let sql = `
             SELECT DISTINCT t.id, t.date, t.description, t.amount, t.category, t.account_type, t.file_source, t.transaction_hash,
                    COALESCE(o.override_category, t.category) as effective_category
             FROM transactions t
             LEFT JOIN transaction_category_overrides o ON t.transaction_hash = o.transaction_hash
             WHERE COALESCE(o.override_category, t.category) IN (${placeholders})
-            ORDER BY t.date DESC
         `;
-        const transactions = await this.all(sql, categories);
+        
+        const params = [...categories];
+        
+        // Add timezone-aware date filtering if provided
+        if (startDate && endDate) {
+            sql += ` AND t.date >= ? AND t.date <= ?`;
+            params.push(startDate, endDate);
+        }
+        
+        sql += ` ORDER BY t.date DESC`;
+        
+        const transactions = await this.all(sql, params);
         return transactions.map(t => ({
             ...t,
             category: t.effective_category

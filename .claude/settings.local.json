@@ -60,7 +60,8 @@
       "Bash(git -C /mnt/c/Users/willxu/Financial-Adviser status)",
       "Bash(git -C /mnt/c/Users/willxu/Financial-Adviser commit -m \"Initial commit: Clean repository structure with files at root level\")",
       "Bash(git -C /mnt/c/Users/willxu/Financial-Adviser log --oneline)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebFetch(domain:www.abs.gov.au)"
     ],
     "deny": []
   }

@@ -37,6 +37,12 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
     lastUpdated: ''
   });
 
+  // Location Settings for ABS Benchmarks
+  const [locationSettings, setLocationSettings] = useState({
+    userLocation: 'victoria',
+    userCity: 'melbourne'
+  });
+
   useEffect(() => {
     if (isOpen) {
       loadSettings();
@@ -59,6 +65,12 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
         if (data.manualBalance) {
           setManualBalance(data.manualBalance);
         }
+        
+        // Load location settings
+        setLocationSettings({
+          userLocation: data.user_location || 'victoria',
+          userCity: data.user_city || 'melbourne'
+        });
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -111,6 +123,12 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
     await saveSetting('manualBalance', balanceData);
     setManualBalance(balanceData);
     alert('Manual balance updated successfully!');
+  };
+
+  const saveLocationSettings = async () => {
+    await saveSetting('user_location', locationSettings.userLocation);
+    await saveSetting('user_city', locationSettings.userCity);
+    alert('Location settings saved successfully! This will update benchmark comparisons in INSIGHTS.');
   };
 
   const addBalanceAdjustment = async () => {
@@ -213,6 +231,7 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
             <div style={{ display: 'flex', borderBottom: '2px solid #e9ecef', marginBottom: '2rem' }}>
               {[
                 { id: 'house-goal', label: '🏠 House Goal', emoji: '🏠' },
+                { id: 'location', label: '📍 Location & Benchmarks', emoji: '📍' },
                 { id: 'balance', label: '💰 Balance Management', emoji: '💰' },
                 { id: 'categories', label: '🏷️ Category Rules', emoji: '🏷️' },
                 { id: 'files', label: '📁 File Management', emoji: '📁' }
@@ -352,6 +371,129 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
                       >
                         💾 Save House Goal Settings
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Location Settings */}
+                {activeTab === 'location' && (
+                  <div>
+                    <h4>📍 Location & Benchmark Settings</h4>
+                    <p style={{ color: '#666', marginBottom: '2rem' }}>
+                      Configure your location to get accurate spending benchmarks from the Australian Bureau of Statistics (ABS).
+                    </p>
+
+                    <div className="card" style={{ marginBottom: '2rem' }}>
+                      <h5>🇦🇺 Australian Location Settings</h5>
+                      <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                        Your location determines which official ABS spending benchmarks are used in the INSIGHTS tab.
+                        Victoria residents get Victoria-specific data, while other states use Australia-wide averages.
+                      </p>
+                      
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', alignItems: 'end', marginBottom: '1.5rem' }}>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                            🏛️ State/Territory:
+                          </label>
+                          <select
+                            value={locationSettings.userLocation}
+                            onChange={(e) => setLocationSettings({ ...locationSettings, userLocation: e.target.value })}
+                            style={{ 
+                              width: '100%', 
+                              padding: '8px', 
+                              borderRadius: '4px', 
+                              border: '1px solid #ddd',
+                              backgroundColor: 'white'
+                            }}
+                          >
+                            <option value="victoria">Victoria</option>
+                            <option value="nsw">New South Wales</option>
+                            <option value="queensland">Queensland</option>
+                            <option value="sa">South Australia</option>
+                            <option value="wa">Western Australia</option>
+                            <option value="tasmania">Tasmania</option>
+                            <option value="nt">Northern Territory</option>
+                            <option value="act">Australian Capital Territory</option>
+                          </select>
+                          <small style={{ color: '#666' }}>
+                            {locationSettings.userLocation === 'victoria' ? 
+                              'Victoria-specific ABS data available' : 
+                              'Using Australia-wide ABS data'}
+                          </small>
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                            🏙️ City (Cost of Living Adjustment):
+                          </label>
+                          <select
+                            value={locationSettings.userCity}
+                            onChange={(e) => setLocationSettings({ ...locationSettings, userCity: e.target.value })}
+                            style={{ 
+                              width: '100%', 
+                              padding: '8px', 
+                              borderRadius: '4px', 
+                              border: '1px solid #ddd',
+                              backgroundColor: 'white'
+                            }}
+                            disabled={locationSettings.userLocation !== 'victoria'}
+                          >
+                            {locationSettings.userLocation === 'victoria' ? (
+                              <>
+                                <option value="melbourne">Melbourne</option>
+                                <option value="geelong">Geelong</option>
+                                <option value="ballarat">Ballarat</option>
+                                <option value="bendigo">Bendigo</option>
+                                <option value="regional_victoria">Regional Victoria</option>
+                              </>
+                            ) : (
+                              <option value="">Select state first</option>
+                            )}
+                          </select>
+                          <small style={{ color: '#666' }}>
+                            {locationSettings.userLocation === 'victoria' ? 
+                              'Adjusts benchmarks for local cost of living' : 
+                              'City selection available for Victoria only'}
+                          </small>
+                        </div>
+
+                        <button
+                          onClick={saveLocationSettings}
+                          className="nav-btn"
+                          style={{ 
+                            background: '#27ae60', 
+                            color: 'white',
+                            padding: '12px 24px',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          💾 Save Location
+                        </button>
+                      </div>
+
+                      <div style={{ padding: '1rem', background: '#e3f2fd', borderRadius: '8px', marginTop: '1rem' }}>
+                        <h6>📊 Current Benchmark Source:</h6>
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                          <strong>Data Source:</strong> Australian Bureau of Statistics (ABS) Monthly Household Spending Indicator<br />
+                          <strong>Period:</strong> April 2025<br />
+                          <strong>Your Benchmarks:</strong> {locationSettings.userLocation === 'victoria' ? 'Victoria-specific data' : 'Australia-wide averages'}
+                          {locationSettings.userLocation === 'victoria' && (
+                            <>
+                              <br /><strong>Cost Adjustment:</strong> {locationSettings.userCity} multiplier applied
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ padding: '1rem', background: '#f8f9fa', borderRadius: '8px', marginTop: '1rem' }}>
+                        <h6>ℹ️ How This Affects Your INSIGHTS:</h6>
+                        <ul style={{ marginTop: '0.5rem', fontSize: '0.9rem', paddingLeft: '1.5rem' }}>
+                          <li><strong>Benchmark Comparisons:</strong> Your spending is compared against official ABS data for your location</li>
+                          <li><strong>Performance Ratings:</strong> "Excellent", "Good", "Average" ratings based on where you rank among other Australians</li>
+                          <li><strong>Savings Opportunities:</strong> Identifies categories where you spend significantly above average</li>
+                          <li><strong>Regional Accuracy:</strong> Victoria residents get more accurate benchmarks specific to their state</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 )}

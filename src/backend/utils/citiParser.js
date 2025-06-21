@@ -1,6 +1,7 @@
 const fs = require('fs-extra');
 const pdf = require('pdf-parse');
 const FinancialCalculator = require('./financialCalculator');
+const DateUtils = require('./dateUtils');
 
 class CitiParser {
     constructor(database = null) {
@@ -206,9 +207,9 @@ class CitiParser {
                 const amount = parseFloat(amountStr.replace(/,/g, ''));
                 if (isNaN(amount)) continue;
                 
-                // Create date in same style as AMEX parser
+                // Create date in Australian timezone using standardized utility
                 const monthNum = this.monthMap[month];
-                const date = new Date(statementYear, monthNum - 1, parseInt(day));
+                const date = DateUtils.createAustralianDate(statementYear, monthNum, parseInt(day));
                 
                 // Categorize transaction
                 const category = await this.financialCalculator.categorizeTransaction(cleanDescription);
