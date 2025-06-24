@@ -24,117 +24,146 @@ class FatherCategoryManager {
     getDefaultFatherCategories() {
         return {
             "FOOD": {
-                "name": "Food & Dining",
+                "name": "Food",
                 "icon": "🍽️",
-                "description": "Food, groceries, and dining expenses"
+                "description": "Food and non-alcoholic beverages"
             },
-            "TRANSPORT": {
-                "name": "Transportation", 
-                "icon": "🚗",
-                "description": "All transportation related expenses"
+            "ALCOHOLIC_TOBACCO": {
+                "name": "Alcoholic & Tobacco",
+                "icon": "🍷",
+                "description": "Alcoholic beverages, tobacco and narcotics"
             },
-            "SHOPPING": {
-                "name": "Shopping",
-                "icon": "🛍️", 
-                "description": "Clothing, electronics, home goods, and general shopping"
-            },
-            "UTILITIES": {
-                "name": "Utilities & Bills",
-                "icon": "💡",
-                "description": "Utilities, phone, internet, and recurring bills"
-            },
-            "ENTERTAINMENT": {
-                "name": "Entertainment",
-                "icon": "🎭",
-                "description": "Movies, games, streaming, travel, and leisure activities"
-            },
-            "HEALTH": {
-                "name": "Health & Wellness",
-                "icon": "🏥",
-                "description": "Medical, dental, pharmacy, and fitness expenses"
-            },
-            "FINANCIAL": {
-                "name": "Financial Services",
-                "icon": "💰",
-                "description": "Banking, insurance, investments, and financial services"
+            "CLOTHING_FOOTWEAR": {
+                "name": "Clothing & Footwear",
+                "icon": "👕",
+                "description": "Clothing and footwear"
             },
             "HOUSING": {
                 "name": "Housing",
                 "icon": "🏠",
-                "description": "Rent, mortgage, and housing maintenance"
+                "description": "Housing, water, electricity, gas and other fuels"
             },
-            "LIFESTYLE": {
-                "name": "Lifestyle & Personal",
-                "icon": "✨",
-                "description": "Personal care, education, childcare, and lifestyle expenses"
+            "HOUSEHOLD_EQUIPMENT": {
+                "name": "Household Equipment",
+                "icon": "🪑",
+                "description": "Furnishings, household equipment and routine household maintenance"
             },
-            "OTHERS": {
-                "name": "Others",
+            "HEALTH": {
+                "name": "Health",
+                "icon": "🏥",
+                "description": "Health services and products"
+            },
+            "TRANSPORT": {
+                "name": "Transport",
+                "icon": "🚗",
+                "description": "Transportation services and products"
+            },
+            "COMMUNICATION": {
+                "name": "Communication",
+                "icon": "📱",
+                "description": "Communication services and equipment"
+            },
+            "RECREATION": {
+                "name": "Recreation",
+                "icon": "🎭",
+                "description": "Recreation and culture"
+            },
+            "EDUCATION": {
+                "name": "Education",
+                "icon": "🎓",
+                "description": "Education services and supplies"
+            },
+            "RESTAURANTS_HOTELS": {
+                "name": "Restaurants & Hotels",
+                "icon": "🍽️",
+                "description": "Restaurants and hotels"
+            },
+            "MISCELLANEOUS": {
+                "name": "Miscellaneous",
                 "icon": "📦",
-                "description": "Miscellaneous and uncategorized expenses"
+                "description": "Miscellaneous goods and services"
             }
         };
     }
 
     getDefaultCategoryMapping() {
         return {
-            // Food & Dining
-            "GROCERIES": "FOOD",
-            "DINING_OUT": "FOOD",
+            // COICOP Division 01: Food and non-alcoholic beverages
+            "FOOD_GROCERIES": "FOOD",
+            "FOOD_BEVERAGES": "FOOD",
+            "FOOD_SPECIALTY": "FOOD",
             
-            // Transportation
-            "TRANSPORT_PUBLIC": "TRANSPORT",
-            "TRANSPORT_FUEL": "TRANSPORT",
-            "TRANSPORT_RIDESHARE": "TRANSPORT",
-            "TRANSPORT_PARKING": "TRANSPORT",
-            "TRANSPORT_OTHER": "TRANSPORT",
+            // COICOP Division 02: Alcoholic beverages, tobacco and narcotics
+            "ALCOHOL_BEVERAGES": "ALCOHOLIC_TOBACCO",
+            "TOBACCO_PRODUCTS": "ALCOHOLIC_TOBACCO",
             
-            // Shopping
-            "SHOPPING_CLOTHING": "SHOPPING",
-            "SHOPPING_ELECTRONICS": "SHOPPING",
-            "SHOPPING_HOME": "SHOPPING",
-            "SHOPPING_ONLINE": "SHOPPING",
+            // COICOP Division 03: Clothing and footwear
+            "CLOTHING_APPAREL": "CLOTHING_FOOTWEAR",
+            "CLOTHING_FOOTWEAR": "CLOTHING_FOOTWEAR",
             
-            // Utilities & Bills
-            "UTILITIES_TELECOM": "UTILITIES",
-            "UTILITIES_ENERGY": "UTILITIES",
-            "UTILITIES_WATER": "UTILITIES",
-            "UTILITIES_COUNCIL": "UTILITIES",
-            
-            // Entertainment
-            "ENTERTAINMENT_STREAMING": "ENTERTAINMENT",
-            "ENTERTAINMENT_ACTIVITIES": "ENTERTAINMENT",
-            "ENTERTAINMENT_GAMING": "ENTERTAINMENT",
-            "ENTERTAINMENT_TRAVEL": "ENTERTAINMENT",
-            
-            // Health & Wellness
-            "HEALTH_MEDICAL": "HEALTH",
-            "HEALTH_PHARMACY": "HEALTH",
-            "HEALTH_FITNESS": "HEALTH",
-            
-            // Financial Services
-            "BANKING_FEES": "FINANCIAL",
-            "INSURANCE": "FINANCIAL",
-            "INVESTMENTS": "FINANCIAL",
-            
-            // Housing
+            // COICOP Division 04: Housing, water, electricity, gas and other fuels
             "HOUSING_RENT": "HOUSING",
             "HOUSING_MORTGAGE": "HOUSING",
             "HOUSING_MAINTENANCE": "HOUSING",
+            "UTILITIES_ELECTRICITY": "HOUSING",
+            "UTILITIES_GAS": "HOUSING",
+            "UTILITIES_WATER": "HOUSING",
             
-            // Lifestyle & Personal
-            "GOVERNMENT": "LIFESTYLE",
-            "PROFESSIONAL_SERVICES": "LIFESTYLE",
-            "EDUCATION": "LIFESTYLE",
-            "PERSONAL_CARE": "LIFESTYLE",
-            "CHILDCARE": "LIFESTYLE",
-            "PETS": "LIFESTYLE",
-            "SUBSCRIPTION": "LIFESTYLE",
+            // COICOP Division 05: Furnishings, household equipment and routine household maintenance
+            "HOUSEHOLD_FURNITURE": "HOUSEHOLD_EQUIPMENT",
+            "HOUSEHOLD_APPLIANCES": "HOUSEHOLD_EQUIPMENT",
+            "HOUSEHOLD_SUPPLIES": "HOUSEHOLD_EQUIPMENT",
             
-            // Others
-            "TRANSFERS": "OTHERS",
-            "CASH_WITHDRAWAL": "OTHERS",
-            "OTHER": "OTHERS"
+            // COICOP Division 06: Health
+            "HEALTH_MEDICAL": "HEALTH",
+            "HEALTH_PHARMACY": "HEALTH",
+            "HEALTH_DENTAL": "HEALTH",
+            "HEALTH_INSURANCE": "HEALTH",
+            
+            // COICOP Division 07: Transport
+            "TRANSPORT_VEHICLES": "TRANSPORT",
+            "TRANSPORT_FUEL": "TRANSPORT",
+            "TRANSPORT_PUBLIC": "TRANSPORT",
+            "TRANSPORT_RIDESHARE": "TRANSPORT",
+            "TRANSPORT_PARKING": "TRANSPORT",
+            "TRANSPORT_MAINTENANCE": "TRANSPORT",
+            "TRANSPORT_REGISTRATION": "TRANSPORT",
+            
+            // COICOP Division 08: Communication
+            "COMMUNICATION_MOBILE": "COMMUNICATION",
+            "COMMUNICATION_INTERNET": "COMMUNICATION",
+            "COMMUNICATION_POSTAL": "COMMUNICATION",
+            
+            // COICOP Division 09: Recreation and culture
+            "RECREATION_ENTERTAINMENT": "RECREATION",
+            "RECREATION_STREAMING": "RECREATION",
+            "RECREATION_SPORTS": "RECREATION",
+            "RECREATION_TRAVEL": "RECREATION",
+            "RECREATION_GAMING": "RECREATION",
+            "RECREATION_HOBBIES": "RECREATION",
+            
+            // COICOP Division 10: Education
+            "EDUCATION_TUITION": "EDUCATION",
+            "EDUCATION_SUPPLIES": "EDUCATION",
+            "EDUCATION_COURSES": "EDUCATION",
+            "CHILDCARE": "EDUCATION",
+            
+            // COICOP Division 11: Restaurants and hotels
+            "DINING_RESTAURANTS": "RESTAURANTS_HOTELS",
+            "DINING_TAKEAWAY": "RESTAURANTS_HOTELS",
+            "DINING_CAFES": "RESTAURANTS_HOTELS",
+            "DINING_PUBS": "RESTAURANTS_HOTELS",
+            "DINING_ETHNIC": "RESTAURANTS_HOTELS",
+            "ACCOMMODATION": "RESTAURANTS_HOTELS",
+            
+            // COICOP Division 12: Miscellaneous goods and services
+            "PERSONAL_CARE": "MISCELLANEOUS",
+            "FINANCIAL_SERVICES": "MISCELLANEOUS",
+            "INSURANCE_GENERAL": "MISCELLANEOUS",
+            "PROFESSIONAL_SERVICES": "MISCELLANEOUS",
+            "CHARITABLE_DONATIONS": "MISCELLANEOUS",
+            "PETS": "MISCELLANEOUS",
+            "OTHER": "MISCELLANEOUS"
         };
     }
 

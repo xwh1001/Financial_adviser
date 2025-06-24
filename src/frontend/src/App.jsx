@@ -16,7 +16,7 @@ function App() {
   const [activeSection, setActiveSection] = useState('overview');
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [modalData, setModalData] = useState({ isOpen: false, category: null, categoryName: '', selectedMonths: [] });
+  const [modalData, setModalData] = useState({ isOpen: false, category: null, categoryName: '', selectedMonths: [], selectedYear: new Date().getFullYear() });
   const [showSettings, setShowSettings] = useState(false);
   const [userSettings, setUserSettings] = useState({});
   const [progressDialog, setProgressDialog] = useState({ isOpen: false, title: '', message: '' });
@@ -54,12 +54,12 @@ function App() {
     await loadDashboardData();
   };
 
-  const openCategoryModal = (category, categoryName, selectedMonths = []) => {
-    setModalData({ isOpen: true, category, categoryName, selectedMonths });
+  const openCategoryModal = (category, categoryName, selectedMonths = [], selectedYear = new Date().getFullYear()) => {
+    setModalData({ isOpen: true, category, categoryName, selectedMonths, selectedYear });
   };
 
   const closeCategoryModal = () => {
-    setModalData({ isOpen: false, category: null, categoryName: '', selectedMonths: [] });
+    setModalData({ isOpen: false, category: null, categoryName: '', selectedMonths: [], selectedYear: new Date().getFullYear() });
   };
 
   const handleSettingsUpdate = (newSettings) => {
@@ -114,6 +114,7 @@ function App() {
         category={modalData.category}
         categoryName={modalData.categoryName}
         selectedMonths={modalData.selectedMonths}
+        selectedYear={modalData.selectedYear}
         onClose={closeCategoryModal}
       />
       

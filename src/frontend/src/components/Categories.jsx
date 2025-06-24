@@ -3,6 +3,7 @@ import { categoryEmojis, fatherCategoryIcons } from '../utils/categoryEmojis';
 
 const Categories = ({ dashboardData, onCategoryClick }) => {
   // State for Monthly Analysis section
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [filteredCategories, setFilteredCategories] = useState([]);
   
@@ -14,6 +15,8 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
   const [categoryTrendData, setCategoryTrendData] = useState([]);
   const [yearlyTransactions, setYearlyTransactions] = useState([]);
   const [selectedTimeRange, setSelectedTimeRange] = useState('ytd');
+  const [trendSelectedYear, setTrendSelectedYear] = useState(new Date().getFullYear());
+  const [availableYears, setAvailableYears] = useState([]);
   const chartContainerRef = useRef(null);
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -27,6 +30,7 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
     setSelectedMonths([]);
     fetchFatherCategories();
     fetchGroupedCategories();
+    fetchAvailableYearsFromBackend();
   }, []);
 
   // Update data when dependencies change
@@ -35,39 +39,45 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
       if (!dashboardData) {
         // Mock data fallback for current month
         setFilteredCategories([
-          { category: 'GROCERIES', amount: 1200, percentage: 40 },
-          { category: 'DINING_OUT', amount: 800, percentage: 27 },
+          { category: 'FOOD_GROCERIES', amount: 1200, percentage: 40 },
+          { category: 'DINING_TAKEAWAY', amount: 800, percentage: 27 },
           { category: 'TRANSPORT_PUBLIC', amount: 500, percentage: 17 },
-          { category: 'SHOPPING_CLOTHING', amount: 300, percentage: 10 },
-          { category: 'UTILITIES_ENERGY', amount: 200, percentage: 6 },
-          { category: 'ENTERTAINMENT', amount: 150, percentage: 5 },
-          { category: 'HEALTHCARE', amount: 100, percentage: 3 },
-          { category: 'SHOPPING_GENERAL', amount: 80, percentage: 2.5 }
+          { category: 'CLOTHING_APPAREL', amount: 300, percentage: 10 },
+          { category: 'UTILITIES_ELECTRICITY', amount: 200, percentage: 6 },
+          { category: 'RECREATION_ENTERTAINMENT', amount: 150, percentage: 5 },
+          { category: 'HEALTH_MEDICAL', amount: 100, percentage: 3 },
+          { category: 'HOUSEHOLD_SUPPLIES', amount: 80, percentage: 2.5 }
         ].sort((a, b) => b.percentage - a.percentage));
         return;
       }
-      fetchMonthlyData(selectedMonths);
+      fetchMonthlyData(selectedMonths, selectedYear);
     }
-  }, [dashboardData, selectedMonths, activeTab]);
+  }, [dashboardData, selectedMonths, selectedYear, activeTab]);
 
   useEffect(() => {
     if (activeTab === 'trend' && selectedFatherCategories.length > 0) {
       fetchFatherCategoryTrendData();
       fetchYearlyTransactionsByFatherCategories();
     }
-  }, [selectedFatherCategories, activeTab, selectedTimeRange]);
+  }, [selectedFatherCategories, activeTab, selectedTimeRange, trendSelectedYear]);
 
 
-  const fetchMonthlyData = async (months) => {
+  const fetchMonthlyData = async (months, year = selectedYear) => {
     try {
-      // If no months selected, fetch all transactions (use existing categoryBreakdown)
+      // If no months selected, automatically generate all months for the selected year
+      let monthsToFetch = months;
       if (!months || months.length === 0) {
-        if (dashboardData && dashboardData.categoryBreakdown) {
-          setFilteredCategories(dashboardData.categoryBreakdown.sort((a, b) => b.percentage - a.percentage));
-        } else {
-          setFilteredCategories([]);
+        // Generate all months for the selected year
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth(); // 0-based
+        
+        // If it's the current year, go up to current month; otherwise, use all 12 months
+        const monthsToGenerate = (year === currentYear) ? currentMonth + 1 : 12;
+        
+        monthsToFetch = [];
+        for (let i = 0; i < monthsToGenerate; i++) {
+          monthsToFetch.push(`${year}-${String(i + 1).padStart(2, '0')}`);
         }
-        return;
       }
 
       const response = await fetch('/api/monthly-categories', {
@@ -75,7 +85,7 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ months }),
+        body: JSON.stringify({ months: monthsToFetch, year }),
       });
       
       if (response.ok) {
@@ -91,35 +101,64 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
     }
   };
 
-  // Get available months from dashboard data
+  // Get available years from dashboard data (now includes ALL years, not just YTD)
+  const getAvailableYears = () => {
+    // First, try to use the availableYears from backend API
+    if (availableYears && availableYears.length > 0) {
+      return availableYears;
+    }
+    
+    // Fallback to dashboard data (now includes all years)
+    if (dashboardData && dashboardData.monthlyData && dashboardData.monthlyData.length > 0) {
+      // Extract unique years from monthlyData
+      const years = new Set();
+      dashboardData.monthlyData.forEach(summary => {
+        const year = parseInt(summary.month.split('-')[0]);
+        years.add(year);
+      });
+      
+      return Array.from(years).sort().reverse();
+    }
+    
+    // Final fallback: return current and past few years including 2024
+    const currentYear = new Date().getFullYear();
+    return [currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
+  };
+
+  // Get available months from dashboard data for selected year
   const getAvailableMonths = () => {
     if (!dashboardData) {
-      // Return current and past few months as fallback
+      // Return months for selected year as fallback
       const months = [];
-      const current = new Date();
       for (let i = 0; i < 12; i++) {
-        const date = new Date(current.getFullYear(), current.getMonth() - i, 1);
+        const date = new Date(selectedYear, i, 1);
         months.push(date.toISOString().slice(0, 7));
       }
-      return months;
+      return months.reverse();
     }
     
-    // Extract unique months from monthlyData (monthlySummaries)
+    // Extract months for selected year from monthlyData (monthlySummaries)
     if (dashboardData.monthlyData && dashboardData.monthlyData.length > 0) {
-      return dashboardData.monthlyData.map(summary => summary.month).sort().reverse();
+      return dashboardData.monthlyData
+        .filter(summary => summary.month.startsWith(selectedYear.toString()))
+        .map(summary => summary.month)
+        .sort()
+        .reverse();
     }
     
-    // Fallback: extract months from YTD data
-    const months = new Set();
-    const currentYear = new Date().getFullYear();
-    
-    // Add months from current year going backwards
+    // Fallback: generate months for selected year
+    const months = [];
     for (let i = 0; i < 12; i++) {
-      const date = new Date(currentYear, new Date().getMonth() - i, 1);
-      months.add(date.toISOString().slice(0, 7));
+      const date = new Date(selectedYear, i, 1);
+      months.push(date.toISOString().slice(0, 7));
     }
     
-    return Array.from(months).sort().reverse();
+    return months.reverse();
+  };
+
+  const handleYearChange = (year) => {
+    setSelectedYear(year);
+    setSelectedMonths([]); // Clear month selection when year changes
   };
 
   const handleMonthToggle = (month) => {
@@ -155,6 +194,31 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
     }
   };
 
+  const fetchAvailableYearsFromBackend = async () => {
+    try {
+      const response = await fetch('/api/available-years');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.years) {
+          setAvailableYears(data.years);
+        } else {
+          // Fallback: use current and past few years
+          const currentYear = new Date().getFullYear();
+          setAvailableYears([currentYear, currentYear - 1, currentYear - 2, currentYear - 3]);
+        }
+      } else {
+        // Fallback: use current and past few years  
+        const currentYear = new Date().getFullYear();
+        setAvailableYears([currentYear, currentYear - 1, currentYear - 2, currentYear - 3]);
+      }
+    } catch (error) {
+      console.error('Error fetching available years:', error);
+      // Fallback: use current and past few years
+      const currentYear = new Date().getFullYear();
+      setAvailableYears([currentYear, currentYear - 1, currentYear - 2, currentYear - 3]);
+    }
+  };
+
   const getTimeRangeParams = () => {
     const now = new Date();
     let startDate, endDate;
@@ -171,6 +235,15 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
       case 'last1year':
         startDate = new Date(now.getFullYear() - 1, now.getMonth(), 1);
         endDate = now;
+        break;
+      case 'customyear':
+        startDate = new Date(trendSelectedYear, 0, 1); // January 1st of selected year
+        // If selected year is current year, use current date; otherwise, use end of year
+        if (trendSelectedYear === now.getFullYear()) {
+          endDate = now;
+        } else {
+          endDate = new Date(trendSelectedYear, 11, 31); // December 31st of selected year
+        }
         break;
       case 'ytd':
       default:
@@ -282,6 +355,11 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
         ? prev.filter(c => c !== fatherCode)
         : [...prev, fatherCode]
     );
+  };
+
+  const handleTrendYearChange = (year) => {
+    setTrendSelectedYear(year);
+    setSelectedTimeRange('customyear'); // Automatically switch to custom year when year is selected
   };
 
   const renderSimpleChart = () => {
@@ -487,12 +565,37 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
         <div>
           <h3>Monthly Analysis ({filteredCategories.length} categories)</h3>
           
+          {/* Year Selector */}
+          <div className="year-selector" style={{ marginBottom: '1.5rem' }}>
+            <h4>Select Year:</h4>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {getAvailableYears().map(year => (
+                <button
+                  key={year}
+                  onClick={() => handleYearChange(year)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    border: '2px solid #ddd',
+                    borderRadius: '8px',
+                    backgroundColor: selectedYear === year ? '#007bff' : 'white',
+                    color: selectedYear === year ? 'white' : '#333',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: selectedYear === year ? 'bold' : 'normal'
+                  }}
+                >
+                  {year}
+                </button>
+              ))}
+            </div>
+          </div>
+          
           <div className="month-selector">
-            <h4>Select Months:</h4>
+            <h4>Select Months for {selectedYear}:</h4>
             <div className="month-grid">
               {getAvailableMonths().map(month => {
                 const date = new Date(month + '-01');
-                const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                const monthName = date.toLocaleDateString('en-US', { month: 'short' });
                 return (
                   <label key={month} className="month-checkbox">
                     <input
@@ -549,7 +652,7 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
                             key={cat.category}
                             className="card category-card clickable-category"
                             style={{ cursor: 'pointer' }}
-                            onClick={() => onCategoryClick(cat.category, categoryName, selectedMonths)}
+                            onClick={() => onCategoryClick(cat.category, categoryName, selectedMonths, selectedYear)}
                           >
                             <div className="category-header">
                               <span className="category-emoji">{emoji}</span>
@@ -588,7 +691,7 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
                       key={cat.category}
                       className="card category-card clickable-category"
                       style={{ cursor: 'pointer' }}
-                      onClick={() => onCategoryClick(cat.category, categoryName, selectedMonths)}
+                      onClick={() => onCategoryClick(cat.category, categoryName, selectedMonths, selectedYear)}
                     >
                       <div className="category-header">
                         <span className="category-emoji">{emoji}</span>
@@ -625,9 +728,10 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
           {/* Time Range Selector */}
           <div style={{ marginBottom: '2rem' }}>
             <h4>Select Time Range:</h4>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
               {[
-                { value: 'ytd', label: 'Year to Date (Jan - Dec)' },
+                { value: 'ytd', label: 'Year to Date (Current Year)' },
+                { value: 'customyear', label: 'Custom Year' },
                 { value: 'last3months', label: 'Last 3 Months' },
                 { value: 'last6months', label: 'Last 6 Months' },
                 { value: 'last1year', label: 'Last 1 Year' }
@@ -650,6 +754,33 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
                 </button>
               ))}
             </div>
+            
+            {/* Year Selector - Show when Custom Year is selected */}
+            {selectedTimeRange === 'customyear' && (
+              <div style={{ marginTop: '1rem' }}>
+                <h4>Select Year:</h4>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {availableYears.map(year => (
+                    <button
+                      key={year}
+                      onClick={() => handleTrendYearChange(year)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        border: '2px solid #ddd',
+                        borderRadius: '8px',
+                        backgroundColor: trendSelectedYear === year ? '#28a745' : 'white',
+                        color: trendSelectedYear === year ? 'white' : '#333',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        fontWeight: trendSelectedYear === year ? 'bold' : 'normal'
+                      }}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="father-category-selector" style={{ marginBottom: '2rem' }}>
@@ -684,6 +815,48 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
             </div>
           </div>
 
+          {/* Category Summary for Selected Time Range */}
+          {selectedFatherCategories.length > 0 && yearlyTransactions.length > 0 && (
+            <div style={{ marginBottom: '2rem' }}>
+              <h4>Category Totals for {selectedTimeRange === 'customyear' ? trendSelectedYear : 
+                selectedTimeRange === 'ytd' ? 'YTD' :
+                selectedTimeRange === 'last3months' ? 'Last 3 Months' :
+                selectedTimeRange === 'last6months' ? 'Last 6 Months' :
+                selectedTimeRange === 'last1year' ? 'Last 1 Year' : 'Selected Period'}</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                {selectedFatherCategories.map(fatherCode => {
+                  const fatherInfo = fatherCategories[fatherCode];
+                  const childCategories = groupedCategories[fatherCode]?.children || [];
+                  const categoryTotal = yearlyTransactions
+                    .filter(txn => childCategories.includes(txn.category))
+                    .reduce((sum, txn) => sum + txn.amount, 0);
+                  
+                  if (categoryTotal === 0) return null;
+                  
+                  return (
+                    <div key={fatherCode} style={{
+                      padding: '1rem',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '8px',
+                      borderLeft: '4px solid #28a745',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1.2rem' }}>{fatherInfo?.icon || '📦'}</span>
+                        <span style={{ fontWeight: 'bold' }}>{fatherInfo?.name || fatherCode}</span>
+                      </div>
+                      <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#e74c3c' }}>
+                        {formatCurrency(categoryTotal)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Trend Chart */}
           <div className="trend-chart" style={{ marginBottom: '2rem' }}>
             <h4>Monthly Spending Trends</h4>
@@ -695,11 +868,35 @@ const Categories = ({ dashboardData, onCategoryClick }) => {
             <div className="yearly-transactions">
               <h4>
                 {selectedTimeRange === 'ytd' ? 'YTD' : 
+                 selectedTimeRange === 'customyear' ? `${trendSelectedYear} Transactions` :
                  selectedTimeRange === 'last3months' ? 'Last 3 Months' :
                  selectedTimeRange === 'last6months' ? 'Last 6 Months' :
                  selectedTimeRange === 'last1year' ? 'Last 1 Year' : 'Selected Range'} 
-                Transactions ({yearlyTransactions.length} transactions)
+                ({yearlyTransactions.length} transactions)
               </h4>
+              
+              {/* Total Amount Summary */}
+              <div style={{ 
+                padding: '1rem', 
+                backgroundColor: '#f8f9fa', 
+                borderRadius: '8px', 
+                marginBottom: '1rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderLeft: '4px solid #007bff'
+              }}>
+                <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  Total Spending for {selectedTimeRange === 'customyear' ? trendSelectedYear : 
+                    selectedTimeRange === 'ytd' ? 'YTD' :
+                    selectedTimeRange === 'last3months' ? 'Last 3 Months' :
+                    selectedTimeRange === 'last6months' ? 'Last 6 Months' :
+                    selectedTimeRange === 'last1year' ? 'Last 1 Year' : 'Selected Period'}:
+                </span>
+                <span style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#e74c3c' }}>
+                  {formatCurrency(yearlyTransactions.reduce((sum, txn) => sum + txn.amount, 0))}
+                </span>
+              </div>
               <div className="table-container" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 <table>
                   <thead>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { categoryEmojis } from '../utils/categoryEmojis';
+import CategoryDropdown from './CategoryDropdown';
 
-const CategoryModal = ({ isOpen, category, categoryName, selectedMonths = [], onClose }) => {
+const CategoryModal = ({ isOpen, category, categoryName, selectedMonths = [], selectedYear = new Date().getFullYear(), onClose }) => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [availableCategories, setAvailableCategories] = useState([]);
@@ -21,7 +22,7 @@ const CategoryModal = ({ isOpen, category, categoryName, selectedMonths = [], on
       fetchCategoryTransactions();
       fetchAvailableCategories();
     }
-  }, [isOpen, category, selectedMonths]);
+  }, [isOpen, category, selectedMonths, selectedYear]);
 
   // Handle ESC key press
   useEffect(() => {
@@ -50,8 +51,8 @@ const CategoryModal = ({ isOpen, category, categoryName, selectedMonths = [], on
   const fetchCategoryTransactions = async () => {
     setLoading(true);
     try {
-      // If we have selected months, use the filtered endpoint
-      if (selectedMonths && selectedMonths.length > 0) {
+      // If we have selected months or year filter, use the filtered endpoint
+      if ((selectedMonths && selectedMonths.length > 0) || selectedYear !== new Date().getFullYear()) {
         const response = await fetch('/api/transactions/category-filtered', {
           method: 'POST',
           headers: {
@@ -59,7 +60,8 @@ const CategoryModal = ({ isOpen, category, categoryName, selectedMonths = [], on
           },
           body: JSON.stringify({ 
             category: category, 
-            months: selectedMonths 
+            months: selectedMonths,
+            year: selectedYear
           }),
         });
         
@@ -248,17 +250,13 @@ const CategoryModal = ({ isOpen, category, categoryName, selectedMonths = [], on
                     <td>{txn.account_type ? txn.account_type.toUpperCase() : 'N/A'}</td>
                     <td>
                       {editingTransaction === txn.id ? (
-                        <select 
-                          value={txn.category} 
-                          onChange={(e) => handleCategoryChange(txn.id, e.target.value)}
-                          style={{ padding: '4px', fontSize: '0.8rem' }}
-                        >
-                          {availableCategories.map(cat => (
-                            <option key={cat} value={cat}>
-                              {categoryEmojis[cat]} {cat.replace(/_/g, ' ')}
-                            </option>
-                          ))}
-                        </select>
+                        <CategoryDropdown
+                          value={txn.category}
+                          onChange={(newCategory) => handleCategoryChange(txn.id, newCategory)}
+                          placeholder="Select Category"
+                          includeEmptyOption={false}
+                          style={{ padding: '4px', fontSize: '0.8rem', width: '200px' }}
+                        />
                       ) : (
                         <span>
                           {categoryEmojis[txn.category]} {txn.category?.replace(/_/g, ' ')}
@@ -312,7 +310,15 @@ const CategoryModal = ({ isOpen, category, categoryName, selectedMonths = [], on
     <div className="modal" style={{ display: 'block' }} onClick={handleOutsideClick}>
       <div className="modal-content" style={{ maxWidth: '1200px', width: '90%' }}>
         <div className="modal-header">
-          <h3>{emoji} {categoryName} Transactions</h3>
+          <h3>
+            {emoji} {categoryName} Transactions
+            {(selectedMonths && selectedMonths.length > 0) ? 
+              ` (${selectedMonths.length} selected months, ${selectedYear})` : 
+              selectedYear !== new Date().getFullYear() ? 
+                ` (YTD ${selectedYear})` : 
+                ''
+            }
+          </h3>
           <button className="modal-close" onClick={onClose}>
             &times;
           </button>
@@ -418,18 +424,12 @@ const RuleCreationModal = ({ transaction, availableCategories, onSave, onClose }
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
                 Category:
               </label>
-              <select
+              <CategoryDropdown
                 value={ruleData.category}
-                onChange={(e) => setRuleData({ ...ruleData, category: e.target.value })}
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '1rem' }}
-              >
-                <option value="">Select Category</option>
-                {availableCategories.map(cat => (
-                  <option key={cat} value={cat}>
-                    {categoryEmojis[cat] || '📂'} {cat.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
-                  </option>
-                ))}
-              </select>
+                onChange={(category) => setRuleData({ ...ruleData, category })}
+                placeholder="Select Category"
+                style={{ fontSize: '1rem' }}
+              />
             </div>
             
             <div>

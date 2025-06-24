@@ -24,85 +24,72 @@ class CustomCategoryManager {
 
     getDefaultCategories() {
         return {
-            // Food & Dining
-            'GROCERIES': [
+            // COICOP DIVISION 01: Food and non-alcoholic beverages
+            'FOOD_GROCERIES': [
                 'WOOLWORTHS', 'COLES', 'IGA', 'ALDI', 'SUPERMARKET', 'FOODLAND', 'SPAR',
                 'FRESH TONE', 'ASIAN GROCER', 'BUTCHER', 'BAKERY', 'FRUIT', 'VEGETABLE', 'GOLDLAND'
             ],
-            'DINING_OUT': [
-                'RESTAURANT', 'CAFE', 'MCDONALD', 'KFC', 'SUBWAY', 'HUNGRY', 'DOMINO',
-                'PIZZA', 'BURGER', 'SUSHI', 'THAI', 'CHINESE', 'INDIAN', 'BISTRO',
-                'PUB', 'BAR', 'GRILL', 'BBQ', 'ROAST'
+            'FOOD_BEVERAGES': [
+                'JUICE', 'SOFT DRINK', 'WATER', 'BEVERAGE', 'COFFEE BEANS', 'TEA'
+            ],
+            'FOOD_SPECIALTY': [
+                'DELI', 'SEAFOOD', 'ORGANIC', 'HEALTH FOOD', 'GOURMET'
             ],
             
-            // Transportation
-            'TRANSPORT_PUBLIC': [
-                'OPAL', 'MYKI', 'TRANSLINK', 'METROCARD', 'BUS', 'TRAIN', 'TRAM', 'FERRY'
+            // COICOP DIVISION 02: Alcoholic beverages, tobacco and narcotics
+            'ALCOHOL_BEVERAGES': [
+                'BWS', 'DAN MURPHY', 'LIQUOR', 'WINE', 'BEER', 'SPIRITS', 'ALCOHOL',
+                'BOTTLE SHOP', 'CELLARBRATIONS', 'FIRST CHOICE'
             ],
-            'TRANSPORT_FUEL': [
-                'PETROL', 'FUEL', 'BP', 'SHELL', 'CALTEX', 'MOBIL', '7-ELEVEN', 'UNITED'
-            ],
-            'TRANSPORT_RIDESHARE': [
-                'UBER', 'TAXI', 'LYFT', 'DIDI', 'RIDESHARE'
-            ],
-            'TRANSPORT_PARKING': [
-                'PARKING', 'PARK', 'METER', 'GARAGE'
-            ],
-            'TRANSPORT_OTHER': [
-                'TOLLS', 'REGO', 'REGISTRATION', 'ROADSIDE', 'RACV', 'NRMA'
+            'TOBACCO_PRODUCTS': [
+                'TOBACCO', 'CIGARETTE', 'CIGAR', 'SMOKING'
             ],
             
-            // Shopping & Retail
-            'SHOPPING_CLOTHING': [
+            // COICOP DIVISION 03: Clothing and footwear
+            'CLOTHING_APPAREL': [
                 'UNIQLO', 'H&M', 'ZARA', 'COTTON ON', 'TARGET', 'KMART', 'BIG W',
-                'MYER', 'DAVID JONES', 'KATHMANDU', 'BONDS', 'SHOES', 'FASHION'
+                'MYER', 'DAVID JONES', 'KATHMANDU', 'BONDS', 'FASHION', 'CLOTHING'
             ],
-            'SHOPPING_ELECTRONICS': [
-                'JB HI-FI', 'HARVEY NORMAN', 'OFFICEWORKS', 'APPLE', 'SAMSUNG',
-                'COMPUTER', 'LAPTOP', 'PHONE', 'ELECTRONICS', 'TECH'
-            ],
-            'SHOPPING_HOME': [
-                'BUNNINGS', 'IKEA', 'FANTASTIC', 'SPOTLIGHT', 'TEMPLE', 'WEBER',
-                'FURNITURE', 'APPLIANCE', 'HARDWARE', 'GARDEN', 'TOOLS'
-            ],
-            'SHOPPING_ONLINE': [
-                'AMAZON', 'EBAY', 'PAYPAL', 'AFTERPAY', 'ZIP', 'ONLINE'
+            'CLOTHING_FOOTWEAR': [
+                'SHOES', 'BOOTS', 'SANDALS', 'SNEAKERS', 'FOOTWEAR', 'ATHLETE FOOT'
             ],
             
-            // Utilities & Bills
-            'UTILITIES_TELECOM': [
-                'TELSTRA', 'OPTUS', 'VODAFONE', 'TPG', 'IINET', 'AUSSIE BROADBAND',
-                'TANGERINE', 'PHONE', 'INTERNET', 'MOBILE'
+            // COICOP DIVISION 04: Housing, water, electricity, gas and other fuels
+            'HOUSING_RENT': [
+                'RENT', 'RENTAL', 'PROPERTY', 'REAL ESTATE', 'ESTATE', 'REALTY'
             ],
-            'UTILITIES_ENERGY': [
-                'ENERGY', 'ELECTRICITY', 'GAS', 'ORIGIN', 'AGL', 'RED ENERGY',
-                'SIMPLY ENERGY', 'POWERSHOP', 'MOMENTUM'
+            'HOUSING_MORTGAGE': [
+                'MORTGAGE', 'HOME LOAN', 'REPAYMENT'
+            ],
+            'UTILITIES_ELECTRICITY': [
+                'ELECTRICITY', 'ELECTRIC', 'ORIGIN', 'AGL', 'RED ENERGY',
+                'SIMPLY ENERGY', 'POWERSHOP', 'MOMENTUM', 'ENERGY AUSTRALIA'
+            ],
+            'UTILITIES_GAS': [
+                'GAS', 'NATURAL GAS', 'LPG'
             ],
             'UTILITIES_WATER': [
                 'WATER', 'YARRA VALLEY', 'SYDNEY WATER', 'SA WATER', 'UNITY WATER'
             ],
-            'UTILITIES_COUNCIL': [
-                'COUNCIL', 'RATES', 'MUNICIPAL', 'CITY OF', 'SHIRE'
+            'HOUSING_MAINTENANCE': [
+                'PLUMBER', 'ELECTRICIAN', 'PAINTER', 'CLEANER', 'MAINTENANCE',
+                'REPAIR', 'SERVICE', 'HANDYMAN'
             ],
             
-            // Entertainment & Recreation
-            'ENTERTAINMENT_STREAMING': [
-                'NETFLIX', 'SPOTIFY', 'DISNEY', 'AMAZON PRIME', 'STAN', 'BINGE',
-                'YOUTUBE', 'APPLE MUSIC', 'FOXTEL'
+            // COICOP DIVISION 05: Furnishings, household equipment and routine household maintenance
+            'HOUSEHOLD_FURNITURE': [
+                'IKEA', 'FANTASTIC', 'FURNITURE', 'SOFA', 'BED', 'TABLE', 'CHAIR'
             ],
-            'ENTERTAINMENT_ACTIVITIES': [
-                'CINEMA', 'MOVIE', 'THEATRE', 'CONCERT', 'EVENT', 'TICKETS',
-                'MELBOURNE CUP', 'SPORTS', 'GYM', 'FITNESS', 'AQUANATION'
+            'HOUSEHOLD_APPLIANCES': [
+                'JB HI-FI', 'HARVEY NORMAN', 'APPLIANCE', 'WASHING MACHINE', 'FRIDGE',
+                'DISHWASHER', 'MICROWAVE', 'VACUUM'
             ],
-            'ENTERTAINMENT_GAMING': [
-                'STEAM', 'GAMING', 'PLAYSTATION', 'XBOX', 'NINTENDO', 'GAME'
-            ],
-            'ENTERTAINMENT_TRAVEL': [
-                'HOTEL', 'MOTEL', 'AIRBNB', 'BOOKING', 'FLIGHT', 'JETSTAR',
-                'QANTAS', 'VIRGIN', 'TIGERAIR', 'TRAVEL', 'HOLIDAY'
+            'HOUSEHOLD_SUPPLIES': [
+                'BUNNINGS', 'SPOTLIGHT', 'TEMPLE', 'WEBER', 'HARDWARE', 'GARDEN',
+                'TOOLS', 'CLEANING', 'DETERGENT'
             ],
             
-            // Health & Personal Care
+            // COICOP DIVISION 06: Health
             'HEALTH_MEDICAL': [
                 'DOCTOR', 'DENTIST', 'HOSPITAL', 'MEDICAL', 'CLINIC', 'PHYSIO',
                 'CHIRO', 'OSTEO', 'SPECIALIST', 'PATHOLOGY'
@@ -111,69 +98,148 @@ class CustomCategoryManager {
                 'PHARMACY', 'CHEMIST', 'PRICELINE', 'TERRY WHITE', 'AMCAL',
                 'MEDICINE', 'PRESCRIPTION'
             ],
-            'HEALTH_FITNESS': [
+            'HEALTH_DENTAL': [
+                'DENTIST', 'DENTAL', 'ORTHODONTIST', 'ORAL HEALTH'
+            ],
+            'HEALTH_INSURANCE': [
+                'MEDIBANK', 'BUPA', 'HCF', 'NIB', 'HEALTH INSURANCE'
+            ],
+            
+            // COICOP DIVISION 07: Transport
+            'TRANSPORT_VEHICLE': [
+                'CAR DEALER', 'AUTO', 'VEHICLE', 'CAR PURCHASE', 'MOTORBIKE'
+            ],
+            'TRANSPORT_FUEL': [
+                'PETROL', 'FUEL', 'BP', 'SHELL', 'CALTEX', 'MOBIL', '7-ELEVEN', 'UNITED',
+                'DIESEL', 'SERVO'
+            ],
+            'TRANSPORT_PUBLIC': [
+                'METRO TRAIN', 'OPAL', 'MYKI', 'TRANSLINK', 'METROCARD', 'BUS', 'TRAIN', 'TRAM', 'FERRY'
+            ],
+            'TRANSPORT_RIDESHARE': [
+                'UBER', 'TAXI', 'LYFT', 'DIDI', 'RIDESHARE'
+            ],
+            'TRANSPORT_PARKING': [
+                'PARKING', 'PARK', 'METER', 'GARAGE'
+            ],
+            'TRANSPORT_MAINTENANCE': [
+                'MECHANIC', 'SERVICE', 'TYRES', 'AUTO REPAIR', 'CAR WASH'
+            ],
+            'TRANSPORT_REGISTRATION': [
+                'REGO', 'REGISTRATION', 'ROADSIDE', 'RACV', 'NRMA', 'TOLLS'
+            ],
+            
+            // COICOP DIVISION 08: Information and communication
+            'COMMUNICATION_MOBILE': [
+                'TELSTRA', 'OPTUS', 'VODAFONE', 'MOBILE', 'PHONE BILL', 'PREPAID'
+            ],
+            'COMMUNICATION_INTERNET': [
+                'TPG', 'IINET', 'AUSSIE BROADBAND', 'TANGERINE', 'INTERNET', 'BROADBAND',
+                'NBN', 'WIFI'
+            ],
+            'COMMUNICATION_POSTAL': [
+                'AUSTRALIA POST', 'POSTAL', 'POSTAGE', 'COURIER', 'DELIVERY'
+            ],
+            
+            // COICOP DIVISION 09: Recreation, sport and culture
+            'RECREATION_ENTERTAINMENT': [
+                'CINEMA', 'MOVIE', 'THEATRE', 'CONCERT', 'EVENT', 'TICKETS',
+                'MELBOURNE CUP', 'SPORTS'
+            ],
+            'RECREATION_SPORTS': [
                 'GYM', 'FITNESS', 'YOGA', 'PILATES', 'PERSONAL TRAINER',
-                'ANYTIME FITNESS', 'JETTS', 'F45'
+                'ANYTIME FITNESS', 'JETTS', 'F45', 'SPORTS CLUB'
+            ],
+            'RECREATION_HOBBIES': [
+                'BOOKS', 'MAGAZINES', 'HOBBIES', 'CRAFT', 'ART SUPPLIES'
+            ],
+            'RECREATION_GAMING': [
+                'STEAM', 'GAMING', 'PLAYSTATION', 'XBOX', 'NINTENDO', 'GAME'
+            ],
+            'RECREATION_STREAMING': [
+                'NETFLIX', 'SPOTIFY', 'DISNEY', 'AMAZON PRIME', 'STAN', 'BINGE',
+                'YOUTUBE', 'APPLE MUSIC', 'FOXTEL'
+            ],
+            'RECREATION_TRAVEL': [
+                'HOTEL', 'MOTEL', 'AIRBNB', 'BOOKING', 'FLIGHT', 'JETSTAR',
+                'QANTAS', 'VIRGIN', 'TIGERAIR', 'TRAVEL', 'HOLIDAY'
             ],
             
-            // Financial Services
-            'BANKING_FEES': [
-                'BANK FEE', 'ATM', 'OVERDRAFT', 'INTEREST', 'CHARGE', 'PENALTY'
+            // COICOP DIVISION 10: Education services
+            'EDUCATION_TUITION': [
+                'UNIVERSITY', 'TAFE', 'SCHOOL', 'TUITION', 'FEES'
             ],
-            'INSURANCE': [
-                'INSURANCE', 'NRMA', 'RACV', 'AAMI', 'BUDGET DIRECT', 'ALLIANZ',
-                'QBE', 'SUNCORP', 'MEDIBANK', 'BUPA', 'HCF'
+            'EDUCATION_SUPPLIES': [
+                'BOOKS', 'STATIONERY', 'STUDY', 'TEXTBOOK', 'SCHOOL SUPPLIES'
             ],
-            'INVESTMENTS': [
-                'SHARE', 'STOCK', 'INVESTMENT', 'SUPER', 'FUND', 'VANGUARD',
-                'BLACKROCK', 'COMMSEC', 'NABTRADE'
+            'EDUCATION_COURSES': [
+                'COURSE', 'TRAINING', 'WORKSHOP', 'SEMINAR', 'CERTIFICATION'
             ],
             
-            // Housing & Property
-            'HOUSING_RENT': [
-                'RENT', 'RENTAL', 'PROPERTY', 'REAL ESTATE', 'ESTATE', 'REALTY'
+            // COICOP DIVISION 11: Restaurants and hotels
+            'DINING_RESTAURANTS': [
+                'RESTAURANT', 'BISTRO', 'FINE DINING', 'STEAKHOUSE'
             ],
-            'HOUSING_MORTGAGE': [
-                'MORTGAGE', 'HOME LOAN', 'REPAYMENT'
+            'DINING_TAKEAWAY': [
+                'MCDONALD', 'KFC', 'SUBWAY', 'HUNGRY', 'DOMINO', 'PIZZA',
+                'BURGER', 'TAKEAWAY', 'FAST FOOD'
             ],
-            'HOUSING_MAINTENANCE': [
-                'PLUMBER', 'ELECTRICIAN', 'PAINTER', 'CLEANER', 'MAINTENANCE',
-                'REPAIR', 'SERVICE'
+            'DINING_CAFES': [
+                'CAFE', 'COFFEE', 'STARBUCKS', 'GLORIA JEANS'
             ],
-            
-            // Government & Legal
-            'GOVERNMENT': [
-                'ATO', 'CENTRELINK', 'MEDICARE', 'VICROADS', 'RMS', 'TMR',
-                'GOVERNMENT', 'TAX', 'FINE', 'PENALTY'
+            'DINING_PUBS': [
+                'PUB', 'BAR', 'GRILL', 'BBQ', 'ROAST', 'TAVERN'
             ],
-            'PROFESSIONAL_SERVICES': [
-                'LAWYER', 'ACCOUNTANT', 'LEGAL', 'SOLICITOR', 'NOTARY'
+            'DINING_ETHNIC': [
+                'SUSHI TRAIN', 'SUSHI', 'THAI', 'CHINESE', 'INDIAN', 'JAPANESE', 'VIETNAMESE',
+                'MEXICAN', 'ITALIAN'
             ],
-            
-            // Education & Personal Development
-            'EDUCATION': [
-                'UNIVERSITY', 'TAFE', 'SCHOOL', 'EDUCATION', 'COURSE', 'TRAINING',
-                'TUITION', 'BOOKS', 'STUDY'
+            'ACCOMMODATION': [
+                'HOTEL', 'MOTEL', 'RESORT', 'ACCOMMODATION'
             ],
             
-            // Personal & Family
+            // COICOP DIVISION 12: Miscellaneous goods and services
             'PERSONAL_CARE': [
                 'HAIRDRESSER', 'BARBER', 'BEAUTY', 'MASSAGE', 'SPA', 'NAIL',
                 'COSMETIC', 'SKINCARE'
             ],
+            'FINANCIAL_SERVICES': [
+                'BANK FEE', 'ATM', 'OVERDRAFT', 'INTEREST', 'CHARGE', 'PENALTY'
+            ],
+            'INSURANCE_GENERAL': [
+                'INSURANCE', 'NRMA', 'RACV', 'AAMI', 'BUDGET DIRECT', 'ALLIANZ',
+                'QBE', 'SUNCORP'
+            ],
+            'PROFESSIONAL_SERVICES': [
+                'LAWYER', 'ACCOUNTANT', 'LEGAL', 'SOLICITOR', 'NOTARY'
+            ],
+            'CHARITABLE_DONATIONS': [
+                'DONATION', 'CHARITY', 'GIFT', 'FUNDRAISING'
+            ],
+            
+            // Additional Categories (not strictly COICOP but useful)
             'CHILDCARE': [
                 'CHILDCARE', 'DAYCARE', 'KINDERGARTEN', 'BABYSITTING', 'NANNY'
             ],
             'PETS': [
                 'VET', 'PETBARN', 'PET', 'DOG', 'CAT', 'ANIMAL'
             ],
-            
-            // Transfers & Payments
+            'GOVERNMENT': [
+                'ATO', 'CENTRELINK', 'MEDICARE', 'VICROADS', 'RMS', 'TMR',
+                'GOVERNMENT', 'TAX', 'FINE', 'PENALTY'
+            ],
+            'INVESTMENTS': [
+                'SHARE', 'STOCK', 'INVESTMENT', 'SUPER', 'FUND', 'VANGUARD',
+                'BLACKROCK', 'COMMSEC', 'NABTRADE'
+            ],
             'TRANSFERS': [
                 'TRANSFER', 'BPAY', 'DIRECT DEBIT', 'PAYMENT', 'MCGRATH'
             ],
             'CASH_WITHDRAWAL': [
                 'CASH', 'WITHDRAWAL', 'ATM'
+            ],
+            'SHOPPING_ONLINE': [
+                'AMAZON', 'EBAY', 'PAYPAL', 'AFTERPAY', 'ZIP', 'ONLINE'
             ]
         };
     }
@@ -195,6 +261,187 @@ class CustomCategoryManager {
             console.error('Error saving custom categories:', error);
             return false;
         }
+    }
+
+    /**
+     * Get COICOP division structure for UI display
+     */
+    getCOICOPStructure() {
+        return {
+            'COICOP Division 01: Food and non-alcoholic beverages': [
+                'FOOD_GROCERIES',
+                'FOOD_BEVERAGES', 
+                'FOOD_SPECIALTY'
+            ],
+            'COICOP Division 02: Alcoholic beverages, tobacco and narcotics': [
+                'ALCOHOL_BEVERAGES',
+                'TOBACCO_PRODUCTS'
+            ],
+            'COICOP Division 03: Clothing and footwear': [
+                'CLOTHING_APPAREL',
+                'CLOTHING_FOOTWEAR'
+            ],
+            'COICOP Division 04: Housing, water, electricity, gas and other fuels': [
+                'HOUSING_RENT',
+                'HOUSING_MORTGAGE',
+                'UTILITIES_ELECTRICITY',
+                'UTILITIES_GAS',
+                'UTILITIES_WATER',
+                'HOUSING_MAINTENANCE'
+            ],
+            'COICOP Division 05: Furnishings, household equipment and routine household maintenance': [
+                'HOUSEHOLD_FURNITURE',
+                'HOUSEHOLD_APPLIANCES',
+                'HOUSEHOLD_SUPPLIES'
+            ],
+            'COICOP Division 06: Health': [
+                'HEALTH_MEDICAL',
+                'HEALTH_PHARMACY',
+                'HEALTH_DENTAL',
+                'HEALTH_INSURANCE'
+            ],
+            'COICOP Division 07: Transport': [
+                'TRANSPORT_VEHICLE',
+                'TRANSPORT_FUEL',
+                'TRANSPORT_PUBLIC',
+                'TRANSPORT_RIDESHARE',
+                'TRANSPORT_PARKING',
+                'TRANSPORT_MAINTENANCE',
+                'TRANSPORT_REGISTRATION'
+            ],
+            'COICOP Division 08: Information and communication': [
+                'COMMUNICATION_MOBILE',
+                'COMMUNICATION_INTERNET',
+                'COMMUNICATION_POSTAL'
+            ],
+            'COICOP Division 09: Recreation, sport and culture': [
+                'RECREATION_ENTERTAINMENT',
+                'RECREATION_SPORTS',
+                'RECREATION_HOBBIES',
+                'RECREATION_GAMING',
+                'RECREATION_STREAMING',
+                'RECREATION_TRAVEL'
+            ],
+            'COICOP Division 10: Education services': [
+                'EDUCATION_TUITION',
+                'EDUCATION_SUPPLIES',
+                'EDUCATION_COURSES'
+            ],
+            'COICOP Division 11: Restaurants and hotels': [
+                'DINING_RESTAURANTS',
+                'DINING_TAKEAWAY',
+                'DINING_CAFES',
+                'DINING_PUBS',
+                'DINING_ETHNIC',
+                'ACCOMMODATION'
+            ],
+            'COICOP Division 12: Miscellaneous goods and services': [
+                'PERSONAL_CARE',
+                'FINANCIAL_SERVICES',
+                'INSURANCE_GENERAL',
+                'PROFESSIONAL_SERVICES',
+                'CHARITABLE_DONATIONS'
+            ],
+            'Additional Categories': [
+                'CHILDCARE',
+                'PETS',
+                'GOVERNMENT',
+                'INVESTMENTS',
+                'TRANSFERS',
+                'CASH_WITHDRAWAL',
+                'SHOPPING_ONLINE'
+            ]
+        };
+    }
+
+    /**
+     * Get category display names
+     */
+    getCategoryDisplayNames() {
+        return {
+            // Division 01
+            'FOOD_GROCERIES': 'Groceries & Food',
+            'FOOD_BEVERAGES': 'Non-Alcoholic Beverages',
+            'FOOD_SPECIALTY': 'Specialty Food',
+            
+            // Division 02
+            'ALCOHOL_BEVERAGES': 'Alcoholic Beverages',
+            'TOBACCO_PRODUCTS': 'Tobacco Products',
+            
+            // Division 03
+            'CLOTHING_APPAREL': 'Clothing & Apparel',
+            'CLOTHING_FOOTWEAR': 'Footwear',
+            
+            // Division 04
+            'HOUSING_RENT': 'Rent',
+            'HOUSING_MORTGAGE': 'Mortgage',
+            'UTILITIES_ELECTRICITY': 'Electricity',
+            'UTILITIES_GAS': 'Gas',
+            'UTILITIES_WATER': 'Water',
+            'HOUSING_MAINTENANCE': 'Home Maintenance',
+            
+            // Division 05
+            'HOUSEHOLD_FURNITURE': 'Furniture',
+            'HOUSEHOLD_APPLIANCES': 'Appliances',
+            'HOUSEHOLD_SUPPLIES': 'Household Supplies',
+            
+            // Division 06
+            'HEALTH_MEDICAL': 'Medical Services',
+            'HEALTH_PHARMACY': 'Pharmacy',
+            'HEALTH_DENTAL': 'Dental Care',
+            'HEALTH_INSURANCE': 'Health Insurance',
+            
+            // Division 07
+            'TRANSPORT_VEHICLE': 'Vehicle Purchases',
+            'TRANSPORT_FUEL': 'Fuel',
+            'TRANSPORT_PUBLIC': 'Public Transport',
+            'TRANSPORT_RIDESHARE': 'Rideshare & Taxi',
+            'TRANSPORT_PARKING': 'Parking',
+            'TRANSPORT_MAINTENANCE': 'Vehicle Maintenance',
+            'TRANSPORT_REGISTRATION': 'Registration & Tolls',
+            
+            // Division 08
+            'COMMUNICATION_MOBILE': 'Mobile Phone',
+            'COMMUNICATION_INTERNET': 'Internet & Broadband',
+            'COMMUNICATION_POSTAL': 'Postal Services',
+            
+            // Division 09
+            'RECREATION_ENTERTAINMENT': 'Entertainment',
+            'RECREATION_SPORTS': 'Sports & Fitness',
+            'RECREATION_HOBBIES': 'Hobbies',
+            'RECREATION_GAMING': 'Gaming',
+            'RECREATION_STREAMING': 'Streaming Services',
+            'RECREATION_TRAVEL': 'Travel',
+            
+            // Division 10
+            'EDUCATION_TUITION': 'Tuition & Fees',
+            'EDUCATION_SUPPLIES': 'Education Supplies',
+            'EDUCATION_COURSES': 'Courses & Training',
+            
+            // Division 11
+            'DINING_RESTAURANTS': 'Restaurants',
+            'DINING_TAKEAWAY': 'Takeaway & Fast Food',
+            'DINING_CAFES': 'Cafes & Coffee',
+            'DINING_PUBS': 'Pubs & Bars',
+            'DINING_ETHNIC': 'Ethnic Cuisine',
+            'ACCOMMODATION': 'Accommodation',
+            
+            // Division 12
+            'PERSONAL_CARE': 'Personal Care',
+            'FINANCIAL_SERVICES': 'Financial Services',
+            'INSURANCE_GENERAL': 'General Insurance',
+            'PROFESSIONAL_SERVICES': 'Professional Services',
+            'CHARITABLE_DONATIONS': 'Donations',
+            
+            // Additional
+            'CHILDCARE': 'Childcare',
+            'PETS': 'Pets',
+            'GOVERNMENT': 'Government',
+            'INVESTMENTS': 'Investments',
+            'TRANSFERS': 'Transfers',
+            'CASH_WITHDRAWAL': 'Cash Withdrawal',
+            'SHOPPING_ONLINE': 'Online Shopping'
+        };
     }
 
     async addCategory(categoryName, keywords = []) {

@@ -391,6 +391,30 @@ class Database {
         return { transactions: transactionsWithOverrides, income, monthlySummaries };
     }
 
+    async getAllDataSummary() {
+        // Get all transactions from all years
+        const transactions = await this.all(
+            `SELECT * FROM transactions 
+             ORDER BY date DESC`
+        );
+
+        const transactionsWithOverrides = await this.applyCategoryOverridesToTransactions(transactions);
+
+        // Get all income from all years
+        const income = await this.all(
+            `SELECT * FROM income 
+             ORDER BY pay_period_end DESC`
+        );
+
+        // Get all monthly summaries from all years
+        const monthlySummaries = await this.all(
+            `SELECT * FROM monthly_summaries 
+             ORDER BY month`
+        );
+
+        return { transactions: transactionsWithOverrides, income, monthlySummaries };
+    }
+
     async getRecentTransactions(limit = 50) {
         const transactions = await this.all(
             `SELECT * FROM transactions 
@@ -585,8 +609,10 @@ class Database {
         
         // Add timezone-aware date filtering if provided
         if (startDate && endDate) {
+            // Convert endDate to end-of-day timestamp for proper filtering
+            const endOfDay = endDate.includes('T') ? endDate : endDate + 'T23:59:59.999Z';
             sql += ` AND t.date >= ? AND t.date <= ?`;
-            params.push(startDate, endDate);
+            params.push(startDate, endOfDay);
         }
         
         sql += ` GROUP BY strftime('%Y-%m', datetime(t.date, '+10 hours')) ORDER BY month`;
@@ -612,8 +638,10 @@ class Database {
         
         // Add timezone-aware date filtering if provided
         if (startDate && endDate) {
+            // Convert endDate to end-of-day timestamp for proper filtering
+            const endOfDay = endDate.includes('T') ? endDate : endDate + 'T23:59:59.999Z';
             sql += ` AND t.date >= ? AND t.date <= ?`;
-            params.push(startDate, endDate);
+            params.push(startDate, endOfDay);
         }
         
         sql += ` ORDER BY t.date DESC`;
@@ -656,6 +684,139 @@ class Database {
             } else {
                 resolve();
             }
+        });
+    }
+
+    // Category Migration Methods
+
+    /**
+     * Get all transactions for migration analysis
+     */
+    async getAllTransactions() {
+        return new Promise((resolve, reject) => {
+            const sql = 'SELECT * FROM transactions ORDER BY date DESC';
+            this.db.all(sql, [], (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows);
+                }
+            });
+        });
+    }
+
+    /**
+     * Update a transaction's category
+     */
+    async updateTransactionCategory(transactionId, newCategory) {
+        return new Promise((resolve, reject) => {
+            const sql = 'UPDATE transactions SET category = ? WHERE id = ?';
+            this.db.run(sql, [newCategory, transactionId], function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(this.changes);
+                }
+            });
+        });
+    }
+
+
+    /**
+     * Clear monthly cache for regeneration
+     */
+    async clearMonthlyCache() {
+        return new Promise((resolve, reject) => {
+            const sql = 'DELETE FROM monthly_summaries';
+            this.db.run(sql, [], function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    console.log(`Cleared ${this.changes} monthly summaries`);
+                    resolve(this.changes);
+                }
+            });
+        });
+    }
+
+    /**
+     * Get monthly data for backup
+     */
+    async getMonthlyData() {
+        return new Promise((resolve, reject) => {
+            const sql = 'SELECT * FROM monthly_summaries ORDER BY month';
+            this.db.all(sql, [], (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows);
+                }
+            });
+        });
+    }
+
+    /**
+     * Restore transactions from backup (for rollback)
+     */
+    async restoreTransactions(transactions) {
+        return new Promise((resolve, reject) => {
+            this.db.serialize(() => {
+                this.db.run('DELETE FROM transactions');
+                
+                const stmt = this.db.prepare(`
+                    INSERT INTO transactions (id, date, description, amount, category, account_type, 
+                                            file_source, transaction_hash, type, offset_amount, 
+                                            reference_number, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `);
+                
+                transactions.forEach(txn => {
+                    stmt.run([
+                        txn.id, txn.date, txn.description, txn.amount, txn.category,
+                        txn.account_type, txn.file_source, txn.transaction_hash,
+                        txn.type, txn.offset_amount, txn.reference_number, txn.created_at
+                    ]);
+                });
+                
+                stmt.finalize((err) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(transactions.length);
+                    }
+                });
+            });
+        });
+    }
+
+    /**
+     * Restore category rules from backup (for rollback)
+     */
+    async restoreCategoryRules(rules) {
+        return new Promise((resolve, reject) => {
+            this.db.serialize(() => {
+                this.db.run('DELETE FROM category_rules');
+                
+                const stmt = this.db.prepare(`
+                    INSERT INTO category_rules (id, pattern, category, priority, enabled, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                `);
+                
+                rules.forEach(rule => {
+                    stmt.run([
+                        rule.id, rule.pattern, rule.category, rule.priority,
+                        rule.enabled, rule.created_at, rule.updated_at
+                    ]);
+                });
+                
+                stmt.finalize((err) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(rules.length);
+                    }
+                });
+            });
         });
     }
 }

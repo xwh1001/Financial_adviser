@@ -43,6 +43,10 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
     userCity: 'melbourne'
   });
 
+  // Benchmark refresh state
+  const [benchmarkRefreshing, setBenchmarkRefreshing] = useState(false);
+  const [benchmarkMetadata, setBenchmarkMetadata] = useState(null);
+
   useEffect(() => {
     if (isOpen) {
       loadSettings();
@@ -129,6 +133,40 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
     await saveSetting('user_location', locationSettings.userLocation);
     await saveSetting('user_city', locationSettings.userCity);
     alert('Location settings saved successfully! This will update benchmark comparisons in INSIGHTS.');
+  };
+
+  const refreshBenchmarkData = async () => {
+    if (!window.confirm('Refresh ABS benchmark data?\n\nThis will fetch the latest Australian Bureau of Statistics household spending data from the government website. The process may take a few moments.\n\nContinue?')) {
+      return;
+    }
+
+    setBenchmarkRefreshing(true);
+    setProgressDialog({
+      isOpen: true,
+      title: 'Refreshing Benchmark Data',
+      message: 'Fetching latest ABS household spending data from government APIs. This may take a few moments...'
+    });
+
+    try {
+      const response = await fetch('/api/refresh-benchmarks', {
+        method: 'POST'
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setBenchmarkMetadata(result.metadata);
+        alert(`✅ Benchmark data refreshed successfully!\n\nSource: ${result.metadata.source}\nPeriod: ${result.metadata.period}\nLast updated: ${new Date(result.metadata.lastUpdated).toLocaleString()}\n\nYour INSIGHTS tab will now use the latest data.`);
+      } else {
+        alert(`⚠️ Benchmark refresh completed with warnings:\n\n${result.message}\n\n${result.details || ''}\n\nThe system is using enhanced fallback data instead.`);
+      }
+    } catch (error) {
+      console.error('Error refreshing benchmarks:', error);
+      alert('❌ Failed to refresh benchmark data. Please try again later or check your internet connection.');
+    } finally {
+      setBenchmarkRefreshing(false);
+      setProgressDialog({ isOpen: false, title: '', message: '' });
+    }
   };
 
   const addBalanceAdjustment = async () => {
@@ -472,10 +510,39 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
                       </div>
 
                       <div style={{ padding: '1rem', background: '#e3f2fd', borderRadius: '8px', marginTop: '1rem' }}>
-                        <h6>📊 Current Benchmark Source:</h6>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                          <h6>📊 Current Benchmark Source:</h6>
+                          <button
+                            onClick={refreshBenchmarkData}
+                            disabled={benchmarkRefreshing}
+                            className="nav-btn"
+                            style={{ 
+                              background: benchmarkRefreshing ? '#6c757d' : '#28a745', 
+                              color: 'white',
+                              padding: '8px 16px',
+                              fontSize: '0.9rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem'
+                            }}
+                          >
+                            {benchmarkRefreshing ? (
+                              <>
+                                <span>🔄</span>
+                                Refreshing...
+                              </>
+                            ) : (
+                              <>
+                                <span>🔄</span>
+                                Refresh Data
+                              </>
+                            )}
+                          </button>
+                        </div>
                         <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
                           <strong>Data Source:</strong> Australian Bureau of Statistics (ABS) Monthly Household Spending Indicator<br />
-                          <strong>Period:</strong> April 2025<br />
+                          <strong>Period:</strong> {benchmarkMetadata?.period || 'April 2025'}<br />
+                          <strong>Last Updated:</strong> {benchmarkMetadata?.lastUpdated ? new Date(benchmarkMetadata.lastUpdated).toLocaleDateString() : 'Unknown'}<br />
                           <strong>Your Benchmarks:</strong> {locationSettings.userLocation === 'victoria' ? 'Victoria-specific data' : 'Australia-wide averages'}
                           {locationSettings.userLocation === 'victoria' && (
                             <>
@@ -492,6 +559,7 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
                           <li><strong>Performance Ratings:</strong> "Excellent", "Good", "Average" ratings based on where you rank among other Australians</li>
                           <li><strong>Savings Opportunities:</strong> Identifies categories where you spend significantly above average</li>
                           <li><strong>Regional Accuracy:</strong> Victoria residents get more accurate benchmarks specific to their state</li>
+                          <li><strong>Manual Refresh:</strong> Use "Refresh Data" to get the latest government data (automatically refreshes weekly)</li>
                         </ul>
                       </div>
                     </div>

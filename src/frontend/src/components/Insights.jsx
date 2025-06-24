@@ -170,7 +170,7 @@ const Insights = ({ dashboardData }) => {
                 {insights.spendingPatterns.topCategories.map((category, index) => (
                   <div key={category.category} className="category-item">
                     <span className="category-rank">#{index + 1}</span>
-                    <span className="category-name">{category.category.replace(/_/g, ' ')}</span>
+                    <span className="category-name">{category.formattedCategory || category.category.replace(/_/g, ' ')}</span>
                     <span className="category-amount">{category.formattedAmount}</span>
                   </div>
                 ))}
@@ -207,7 +207,7 @@ const Insights = ({ dashboardData }) => {
               return (
                 <div key={category} className={`card comparison-item performance-${comparison.performance}`}>
                   <div className="comparison-header">
-                    <h4>{category.replace(/_/g, ' ')}</h4>
+                    <h4>{comparison.formattedName || category.replace(/_/g, ' ')}</h4>
                     <div className={`performance-badge ${comparison.performance}`}>
                       {comparison.performance}
                     </div>
@@ -386,7 +386,7 @@ const Insights = ({ dashboardData }) => {
                               <span>Focus on: </span>
                               {adjustment.categories.map((cat, catIndex) => (
                                 <span key={catIndex} className="category-tag">
-                                  {cat.category.replace(/_/g, ' ')} ({formatCurrency(cat.amount)})
+                                  {cat.formattedCategory || cat.category.replace(/_/g, ' ')} ({formatCurrency(cat.amount)})
                                 </span>
                               ))}
                             </div>

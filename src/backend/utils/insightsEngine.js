@@ -115,8 +115,12 @@ class FinancialInsightsEngine {
     const opportunities = [];
 
     // Dining out vs groceries analysis
-    const diningOut = userData.monthlyAverages['DINING_OUT'] || 0;
-    const groceries = userData.monthlyAverages['GROCERIES'] || 0;
+    const diningOut = (userData.monthlyAverages['DINING_RESTAURANTS'] || 0) + 
+                     (userData.monthlyAverages['DINING_TAKEAWAY'] || 0) + 
+                     (userData.monthlyAverages['DINING_CAFES'] || 0) + 
+                     (userData.monthlyAverages['DINING_PUBS'] || 0) + 
+                     (userData.monthlyAverages['DINING_ETHNIC'] || 0);
+    const groceries = userData.monthlyAverages['FOOD_GROCERIES'] || 0;
     
     if (diningOut > groceries * 0.5 && diningOut > 200) {
       const potentialSavings = diningOut * 0.3;
@@ -143,7 +147,7 @@ class FinancialInsightsEngine {
     }
 
     // Subscription optimization
-    const subscriptions = userData.monthlyAverages['ENTERTAINMENT_STREAMING'] || 0;
+    const subscriptions = userData.monthlyAverages['RECREATION_STREAMING'] || 0;
     if (subscriptions > 60) {
       const potentialSavings = subscriptions * 0.4;
       opportunities.push({
@@ -198,9 +202,11 @@ class FinancialInsightsEngine {
     }
 
     // Energy efficiency
-    const energy = userData.monthlyAverages['UTILITIES_ENERGY'] || 0;
+    const energy = (userData.monthlyAverages['UTILITIES_ELECTRICITY'] || 0) + 
+                   (userData.monthlyAverages['UTILITIES_GAS'] || 0);
     const energyBenchmarks = this.benchmarkService.getBenchmarks(this.defaultLocation, this.defaultCity);
-    const benchmark = energyBenchmarks['UTILITIES_ENERGY'] ? energyBenchmarks['UTILITIES_ENERGY'].amount : 250;
+    const benchmark = ((energyBenchmarks['UTILITIES_ELECTRICITY'] ? energyBenchmarks['UTILITIES_ELECTRICITY'].amount : 200) + 
+                      (energyBenchmarks['UTILITIES_GAS'] ? energyBenchmarks['UTILITIES_GAS'].amount : 120));
     
     if (energy > benchmark * 1.3) {
       const potentialSavings = energy * 0.25;
@@ -359,15 +365,16 @@ class FinancialInsightsEngine {
       .map(([category, amount]) => ({
         category,
         amount,
-        formattedAmount: Formatters.formatCurrency(amount)
+        formattedAmount: Formatters.formatCurrency(amount),
+        formattedCategory: this.benchmarkService.formatCategoryName(category)
       }));
   }
 
   calculateNeedsSpending(monthlyAverages) {
     const needsCategories = [
-      'GROCERIES', 'UTILITIES_ENERGY', 'UTILITIES_WATER', 'UTILITIES_COUNCIL',
+      'FOOD_GROCERIES', 'UTILITIES_ELECTRICITY', 'UTILITIES_GAS', 'UTILITIES_WATER',
       'TRANSPORT_FUEL', 'TRANSPORT_PUBLIC', 'HEALTH_MEDICAL', 'HEALTH_PHARMACY',
-      'HOUSING_RENT', 'HOUSING_MORTGAGE', 'INSURANCE'
+      'HOUSING_RENT', 'HOUSING_MORTGAGE', 'INSURANCE_GENERAL', 'HEALTH_INSURANCE'
     ];
 
     return needsCategories.reduce((sum, category) => {
@@ -377,9 +384,10 @@ class FinancialInsightsEngine {
 
   calculateWantsSpending(monthlyAverages) {
     const wantsCategories = [
-      'DINING_OUT', 'ENTERTAINMENT_STREAMING', 'ENTERTAINMENT_ACTIVITIES',
-      'SHOPPING_CLOTHING', 'SHOPPING_ELECTRONICS', 'SHOPPING_HOME',
-      'PERSONAL_CARE', 'ENTERTAINMENT_TRAVEL'
+      'DINING_RESTAURANTS', 'DINING_TAKEAWAY', 'DINING_CAFES', 'DINING_PUBS', 'DINING_ETHNIC',
+      'RECREATION_STREAMING', 'RECREATION_ENTERTAINMENT', 'RECREATION_SPORTS', 'RECREATION_TRAVEL',
+      'CLOTHING_APPAREL', 'CLOTHING_FOOTWEAR', 'HOUSEHOLD_FURNITURE', 'HOUSEHOLD_APPLIANCES',
+      'PERSONAL_CARE', 'RECREATION_HOBBIES', 'RECREATION_GAMING'
     ];
 
     return wantsCategories.reduce((sum, category) => {
@@ -439,7 +447,7 @@ class FinancialInsightsEngine {
           .filter(([cat]) => this.isNeedsCategory(cat))
           .sort(([,a], [,b]) => b - a)
           .slice(0, 3)
-          .map(([cat, amount]) => ({ category: cat, amount }))
+          .map(([cat, amount]) => ({ category: cat, amount, formattedCategory: this.benchmarkService.formatCategoryName(cat) }))
       });
     }
 
@@ -451,7 +459,7 @@ class FinancialInsightsEngine {
           .filter(([cat]) => this.isWantsCategory(cat))
           .sort(([,a], [,b]) => b - a)
           .slice(0, 3)
-          .map(([cat, amount]) => ({ category: cat, amount }))
+          .map(([cat, amount]) => ({ category: cat, amount, formattedCategory: this.benchmarkService.formatCategoryName(cat) }))
       });
     }
 
@@ -460,18 +468,19 @@ class FinancialInsightsEngine {
 
   isNeedsCategory(category) {
     const needs = [
-      'GROCERIES', 'UTILITIES_ENERGY', 'UTILITIES_WATER', 'UTILITIES_COUNCIL',
+      'FOOD_GROCERIES', 'UTILITIES_ELECTRICITY', 'UTILITIES_GAS', 'UTILITIES_WATER',
       'TRANSPORT_FUEL', 'TRANSPORT_PUBLIC', 'HEALTH_MEDICAL', 'HEALTH_PHARMACY',
-      'HOUSING_RENT', 'HOUSING_MORTGAGE', 'INSURANCE'
+      'HOUSING_RENT', 'HOUSING_MORTGAGE', 'INSURANCE_GENERAL', 'HEALTH_INSURANCE'
     ];
     return needs.includes(category);
   }
 
   isWantsCategory(category) {
     const wants = [
-      'DINING_OUT', 'ENTERTAINMENT_STREAMING', 'ENTERTAINMENT_ACTIVITIES',
-      'SHOPPING_CLOTHING', 'SHOPPING_ELECTRONICS', 'SHOPPING_HOME',
-      'PERSONAL_CARE', 'ENTERTAINMENT_TRAVEL'
+      'DINING_RESTAURANTS', 'DINING_TAKEAWAY', 'DINING_CAFES', 'DINING_PUBS', 'DINING_ETHNIC',
+      'RECREATION_STREAMING', 'RECREATION_ENTERTAINMENT', 'RECREATION_SPORTS', 'RECREATION_TRAVEL',
+      'CLOTHING_APPAREL', 'CLOTHING_FOOTWEAR', 'HOUSEHOLD_FURNITURE', 'HOUSEHOLD_APPLIANCES',
+      'PERSONAL_CARE', 'RECREATION_HOBBIES', 'RECREATION_GAMING'
     ];
     return wants.includes(category);
   }

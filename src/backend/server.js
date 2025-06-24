@@ -663,14 +663,23 @@ app.delete('/api/user-data/backups/:filename', async (req, res) => {
 // Get financial dashboard data
 app.get('/api/dashboard', errorHandler.asyncHandler(async (req, res) => {
   let ytdData = null;
+  let allData = null;
   let recentTransactions = [];
   
-  // Fetch data with fallbacks
+  // Fetch YTD data for income/expenses calculations
   try {
     ytdData = await db.getYTDSummary();
   } catch (ytdError) {
     console.warn('Failed to fetch YTD summary, using fallback:', ytdError);
     ytdData = { monthlySummaries: [], transactions: [] };
+  }
+  
+  // Fetch ALL data for Categories tab year selection
+  try {
+    allData = await db.getAllDataSummary();
+  } catch (dataError) {
+    console.warn('Failed to fetch all data summary, using fallback:', dataError);
+    allData = { monthlySummaries: [], transactions: [] };
   }
   
   try {
@@ -680,18 +689,23 @@ app.get('/api/dashboard', errorHandler.asyncHandler(async (req, res) => {
     recentTransactions = [];
   }
   
-  // Calculate aggregated data with null checks
-  const monthlySummaries = ytdData.monthlySummaries || [];
-  const transactions = ytdData.transactions || [];
+  // Use YTD data for income/expenses calculations (for dashboard totals)
+  const ytdMonthlySummaries = ytdData.monthlySummaries || [];
+  const ytdTransactions = ytdData.transactions || [];
   
-  const totalIncome = monthlySummaries.reduce((sum, month) => sum + (month.total_income || 0), 0);
-  const totalExpenses = monthlySummaries.reduce((sum, month) => sum + (month.total_expenses || 0), 0);
+  // Use ALL data for Categories tab (monthlyData field)
+  const allMonthlySummaries = allData.monthlySummaries || [];
+  const allTransactions = allData.transactions || [];
+  
+  // Calculate YTD totals for dashboard display
+  const totalIncome = ytdMonthlySummaries.reduce((sum, month) => sum + (month.total_income || 0), 0);
+  const totalExpenses = ytdMonthlySummaries.reduce((sum, month) => sum + (month.total_expenses || 0), 0);
   const netSavings = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
   
-  // Category breakdown with fallback
+  // Use YTD transactions for category breakdown (dashboard display)
   const categoryTotals = {};
-  transactions.forEach(txn => {
+  ytdTransactions.forEach(txn => {
     if (txn && txn.category && typeof txn.amount === 'number') {
       categoryTotals[txn.category] = (categoryTotals[txn.category] || 0) + txn.amount;
     }
@@ -724,10 +738,10 @@ app.get('/api/dashboard', errorHandler.asyncHandler(async (req, res) => {
       totalBalance: 25000, // This would come from bank balance parsing
       netWorth: 75000 // This would be calculated from assets
     },
-    categoryBreakdown,
+    categoryBreakdown, // YTD category breakdown for dashboard
     recentTransactions: (recentTransactions || []).slice(0, 10),
-    monthlyData: monthlySummaries,
-    hasData: transactions.length > 0 || monthlySummaries.length > 0
+    monthlyData: allMonthlySummaries, // ALL monthly data for Categories tab year selection
+    hasData: ytdTransactions.length > 0 || ytdMonthlySummaries.length > 0
   });
 }));
 
@@ -780,12 +794,61 @@ app.get('/api/insights', errorHandler.asyncHandler(async (req, res) => {
   });
 }));
 
+// Get available years from transaction dates
+app.get('/api/available-years', errorHandler.asyncHandler(async (req, res) => {
+  try {
+    // Query the database to get distinct years from transaction dates
+    const sql = `
+      SELECT DISTINCT SUBSTR(date, 1, 4) as year 
+      FROM transactions 
+      WHERE date IS NOT NULL AND date != '' AND LENGTH(date) >= 4
+      ORDER BY year DESC
+    `;
+    
+    const rows = await db.all(sql);
+    
+    // Extract years from the query result and convert to integers
+    const years = rows
+      .map(row => parseInt(row.year))
+      .filter(year => !isNaN(year) && year >= 2000 && year <= 2050) // Filter valid years
+      .sort((a, b) => b - a); // Sort descending (newest first)
+    
+    res.json({
+      success: true,
+      years: years
+    });
+  } catch (error) {
+    console.error('Error fetching available years:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching available years',
+      error: error.message
+    });
+  }
+}));
+
 // Get monthly categories data
 app.post('/api/monthly-categories', async (req, res) => {
   try {
-    const { months } = req.body;
+    const { months, year } = req.body;
     
-    if (!months || !Array.isArray(months)) {
+    // If no months specified but year is specified, use YTD for that year
+    let filteredMonths = months;
+    if ((!months || months.length === 0) && year) {
+      // Generate YTD months for the specified year
+      const currentMonth = new Date().getMonth(); // 0-based
+      const currentYear = new Date().getFullYear();
+      
+      // If it's the current year, go up to current month; otherwise, use all 12 months
+      const monthsToGenerate = (year === currentYear) ? currentMonth + 1 : 12;
+      
+      filteredMonths = [];
+      for (let i = 0; i < monthsToGenerate; i++) {
+        filteredMonths.push(`${year}-${String(i + 1).padStart(2, '0')}`);
+      }
+    }
+    
+    if (!filteredMonths || !Array.isArray(filteredMonths)) {
       return res.status(400).json({
         success: false,
         message: 'Months array is required'
@@ -793,7 +856,7 @@ app.post('/api/monthly-categories', async (req, res) => {
     }
 
     // Get transactions for selected months
-    const transactions = await db.getTransactionsByMonths(months);
+    const transactions = await db.getTransactionsByMonths(filteredMonths);
     
     // Calculate category totals
     const categoryTotals = {};
@@ -848,16 +911,32 @@ app.get('/api/transactions/category/:category', async (req, res) => {
 // Get filtered transactions for a specific category and months
 app.post('/api/transactions/category-filtered', async (req, res) => {
   try {
-    const { category, months } = req.body;
+    const { category, months, year } = req.body;
     
-    if (!category || !months || !Array.isArray(months)) {
+    if (!category) {
       return res.status(400).json({
         success: false,
-        message: 'Category and months array are required'
+        message: 'Category is required'
       });
     }
 
-    const transactions = await db.getTransactionsByCategoryAndMonths(category, months);
+    // Generate months for year if no specific months provided
+    let filteredMonths = months;
+    if ((!months || months.length === 0) && year) {
+      // Generate YTD months for the specified year
+      const currentMonth = new Date().getMonth(); // 0-based
+      const currentYear = new Date().getFullYear();
+      
+      // If it's the current year, go up to current month; otherwise, use all 12 months
+      const monthsToGenerate = (year === currentYear) ? currentMonth + 1 : 12;
+      
+      filteredMonths = [];
+      for (let i = 0; i < monthsToGenerate; i++) {
+        filteredMonths.push(`${year}-${String(i + 1).padStart(2, '0')}`);
+      }
+    }
+
+    const transactions = await db.getTransactionsByCategoryAndMonths(category, filteredMonths || []);
     
     res.json({
       success: true,
@@ -922,6 +1001,90 @@ app.get('/api/categories', async (req, res) => {
     });
   }
 });
+
+// Get COICOP-aligned category structure
+app.get('/api/categories/coicop', errorHandler.asyncHandler(async (req, res) => {
+  try {
+    const coicopStructure = customCategoryManager.getCOICOPStructure();
+    const displayNames = customCategoryManager.getCategoryDisplayNames();
+    const customCategories = await customCategoryManager.getCustomCategories();
+    
+    // Add additional metadata for each category
+    const enrichedStructure = {};
+    
+    Object.entries(coicopStructure).forEach(([divisionName, categories]) => {
+      enrichedStructure[divisionName] = categories.map(categoryId => ({
+        id: categoryId,
+        displayName: displayNames[categoryId] || categoryId,
+        keywordCount: customCategories[categoryId] ? customCategories[categoryId].length : 0,
+        exists: customCategories[categoryId] !== undefined
+      }));
+    });
+    
+    res.json({
+      success: true,
+      structure: enrichedStructure,
+      totalCategories: Object.values(coicopStructure).flat().length,
+      totalDivisions: Object.keys(coicopStructure).length
+    });
+  } catch (error) {
+    console.error('Error fetching COICOP categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching COICOP categories',
+      error: error.message
+    });
+  }
+}));
+
+// Category Migration API
+app.post('/api/categories/migrate', errorHandler.asyncHandler(async (req, res) => {
+  try {
+    const CategoryMigration = require('./utils/categoryMigration');
+    const migration = new CategoryMigration(db);
+    
+    console.log('🚀 Starting category migration to COICOP...');
+    const result = await migration.runMigration();
+    
+    res.json({
+      success: true,
+      message: 'Category migration completed successfully',
+      report: result.report,
+      migrationLogCount: result.migrationLog.length
+    });
+  } catch (error) {
+    console.error('❌ Category migration failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Category migration failed',
+      error: error.message
+    });
+  }
+}));
+
+// Migration status and analysis
+app.get('/api/categories/migration-analysis', errorHandler.asyncHandler(async (req, res) => {
+  try {
+    const CategoryMigration = require('./utils/categoryMigration');
+    const migration = new CategoryMigration(db);
+    
+    // Run analysis without actual migration
+    const analysis = await migration.analyzeCurrentData();
+    
+    res.json({
+      success: true,
+      analysis: analysis,
+      migrationNeeded: analysis.categoriesInUse.length > 0
+    });
+  } catch (error) {
+    console.error('Error analyzing migration needs:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error analyzing migration needs',
+      error: error.message
+    });
+  }
+}));
 
 // Father Categories Management
 app.get('/api/father-categories', async (req, res) => {
@@ -1411,6 +1574,46 @@ app.post('/api/settings', async (req, res) => {
     });
   }
 });
+
+// Refresh ABS Benchmark Data - Force refresh of government benchmark data
+app.post('/api/refresh-benchmarks', errorHandler.asyncHandler(async (req, res) => {
+  try {
+    console.log('🔄 Manual benchmark refresh requested...');
+    
+    // Force refresh by calling the benchmark service directly
+    const benchmarkService = insightsEngine.benchmarkService;
+    
+    // Try to fetch fresh data (this will retry if it fails)
+    await benchmarkService.fetchABSData();
+    
+    // Reload the data to get fresh benchmarks
+    await benchmarkService.loadBenchmarkData();
+    
+    // Get metadata for response
+    const metadata = benchmarkService.getBenchmarkMetadata();
+    
+    console.log('✅ Benchmark refresh completed successfully');
+    
+    res.json({ 
+      success: true, 
+      message: 'Benchmark data refreshed successfully',
+      metadata: {
+        source: metadata.source,
+        lastUpdated: metadata.last_updated,
+        period: metadata.period
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error refreshing benchmarks:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to refresh benchmark data',
+      error: error.message,
+      details: 'The system fell back to enhanced fallback data. Check server logs for details.'
+    });
+  }
+}));
 
 // Refresh Categories - Re-categorize all transactions (preserving manual overrides)
 app.post('/api/refresh-categories', async (req, res) => {

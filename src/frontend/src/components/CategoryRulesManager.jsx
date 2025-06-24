@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { categoryEmojis } from '../utils/categoryEmojis';
+import CategoryDropdown from './CategoryDropdown';
 
 const CategoryRulesManager = ({ isOpen, onClose }) => {
   const [rules, setRules] = useState([]);
@@ -149,18 +150,11 @@ const CategoryRulesManager = ({ isOpen, onClose }) => {
                   </div>
                   <div>
                     <label>Category:</label>
-                    <select
+                    <CategoryDropdown
                       value={newRule.category}
-                      onChange={(e) => setNewRule({ ...newRule, category: e.target.value })}
-                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                    >
-                      <option value="">Select Category</option>
-                      {availableCategories.map(cat => (
-                        <option key={cat} value={cat}>
-                          {categoryEmojis[cat] || '📂'} {cat.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(category) => setNewRule({ ...newRule, category })}
+                      placeholder="Select Category"
+                    />
                   </div>
                   <div>
                     <label>Priority:</label>
@@ -299,22 +293,22 @@ const CategoryRulesManager = ({ isOpen, onClose }) => {
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem', fontSize: '0.8rem' }}>
                   <div>
-                    <strong>🛒 Groceries:</strong> WOOLWORTHS, COLES, IGA, ALDI
+                    <strong>🛒 Food Groceries:</strong> WOOLWORTHS, COLES, IGA, ALDI
                   </div>
                   <div>
-                    <strong>🍽️ Dining:</strong> MCDONALD'S, KFC, UBER EATS, DOMINO'S
+                    <strong>🥡 Dining Takeaway:</strong> MCDONALD'S, KFC, UBER EATS, DOMINO'S
                   </div>
                   <div>
-                    <strong>⛽ Transport:</strong> SHELL, BP, UBER, TAXI
+                    <strong>⛽ Transport Fuel:</strong> SHELL, BP, CALTEX
                   </div>
                   <div>
-                    <strong>📱 Shopping:</strong> AMAZON, EBAY, JB HI-FI, BUNNINGS
+                    <strong>🧽 Household Supplies:</strong> BUNNINGS, SPOTLIGHT, HARDWARE
                   </div>
                   <div>
-                    <strong>⚡ Utilities:</strong> ORIGIN ENERGY, AGL, TELSTRA
+                    <strong>⚡ Utilities Electricity:</strong> ORIGIN ENERGY, AGL, RED ENERGY
                   </div>
                   <div>
-                    <strong>📺 Entertainment:</strong> NETFLIX, SPOTIFY, CINEMA
+                    <strong>📺 Recreation Streaming:</strong> NETFLIX, SPOTIFY, DISNEY+
                   </div>
                 </div>
               </div>
@@ -346,17 +340,12 @@ const CategoryRulesManager = ({ isOpen, onClose }) => {
                 </div>
                 <div>
                   <label>Category:</label>
-                  <select
+                  <CategoryDropdown
                     value={editingRule.category}
-                    onChange={(e) => setEditingRule({ ...editingRule, category: e.target.value })}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                  >
-                    {availableCategories.map(cat => (
-                      <option key={cat} value={cat}>
-                        {categoryEmojis[cat] || '📂'} {cat.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(category) => setEditingRule({ ...editingRule, category })}
+                    placeholder="Select Category"
+                    includeEmptyOption={false}
+                  />
                 </div>
                 <div>
                   <label>Priority:</label>
