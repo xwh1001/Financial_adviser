@@ -774,18 +774,34 @@ app.get('/api/ytd-analysis', async (req, res) => {
 });
 
 // Get personalized financial insights
-app.get('/api/insights', errorHandler.asyncHandler(async (req, res) => {
-  const timeframe = req.query.timeframe || 'lastmonth';
-  const userTimezone = req.query.userTimezone || 'Australia/Sydney'; // Default to Australian timezone
-  const userDate = req.query.userDate; // Current date in user's timezone (YYYY-MM-DD format)
+app.post('/api/insights', errorHandler.asyncHandler(async (req, res) => {
+  const { months, year, userTimezone = 'Australia/Sydney', userDate } = req.body;
+  
+  // If no months specified but year is specified, use YTD for that year (same logic as monthly-categories)
+  let filteredMonths = months;
+  if ((!months || months.length === 0) && year) {
+    // Generate YTD months for the specified year
+    const currentMonth = new Date().getMonth(); // 0-based
+    const currentYear = new Date().getFullYear();
+    
+    // If it's the current year, go up to current month; otherwise, use all 12 months
+    const monthsToGenerate = (year === currentYear) ? currentMonth + 1 : 12;
+    
+    filteredMonths = [];
+    for (let i = 0; i < monthsToGenerate; i++) {
+      filteredMonths.push(`${year}-${String(i + 1).padStart(2, '0')}`);
+    }
+  }
   
   // Get user's location settings for ABS benchmarks
   const userLocation = await db.getUserSetting('user_location') || 'victoria';
   const userCity = await db.getUserSetting('user_city') || 'melbourne';
   
-  console.log(`🔍 Generating insights for timeframe: ${timeframe}, location: ${userLocation}, city: ${userCity}, timezone: ${userTimezone}, date: ${userDate}`);
+  console.log(`🔍 Generating insights for months: ${JSON.stringify(filteredMonths)}, year: ${year}, location: ${userLocation}, city: ${userCity}, timezone: ${userTimezone}, date: ${userDate}`);
   
-  const insights = await insightsEngine.generatePersonalizedInsights(timeframe, userTimezone, userDate, userLocation, userCity);
+  const insights = await insightsEngine.generatePersonalizedInsightsByMonths(filteredMonths, userTimezone, userDate, userLocation, userCity);
+  
+  console.log(`✅ Insights generated successfully. Has data: ${insights?.hasData}, dataPoints: ${insights?.metadata?.dataPoints}`);
   
   res.json({
     success: true,
@@ -956,33 +972,38 @@ app.post('/api/transactions/category-filtered', async (req, res) => {
 });
 
 // Update transaction category
-app.put('/api/transactions/:id/category', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { category } = req.body;
+app.put('/api/transactions/:id/category', errorHandler.asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { category } = req.body;
 
-    if (!category) {
-      return res.status(400).json({
-        success: false,
-        message: 'Category is required'
-      });
-    }
+  console.log(`🔄 PUT /api/transactions/${id}/category - Updating to: ${category}`);
 
-    await db.updateTransactionCategory(id, category);
-    
-    res.json({
-      success: true,
-      message: 'Transaction category updated successfully'
-    });
-  } catch (error) {
-    console.error('Error updating transaction category:', error);
-    res.status(500).json({
+  if (!category) {
+    return res.status(400).json({
       success: false,
-      message: 'Error updating transaction category',
-      error: error.message
+      message: 'Category is required'
     });
   }
-});
+
+  // Update the transaction category (creates category override)
+  const updateResult = await db.updateTransactionCategory(id, category);
+  console.log(`✅ Transaction ${id} category updated. Override result:`, updateResult);
+  
+  // Create automatic backup after category change
+  try {
+    const backupResult = await categoryBackupManager.exportRules();
+    console.log(`💾 Automatic backup created: ${backupResult.filePath}`);
+  } catch (backupError) {
+    console.warn('⚠️ Failed to create automatic backup:', backupError.message);
+    // Don't fail the request if backup fails
+  }
+  
+  res.json({
+    success: true,
+    message: 'Transaction category updated successfully',
+    backupCreated: true
+  });
+}));
 
 // Get all available categories
 app.get('/api/categories', async (req, res) => {
@@ -1150,51 +1171,60 @@ app.get('/api/category-rules', async (req, res) => {
   }
 });
 
-app.post('/api/category-rules', async (req, res) => {
+app.post('/api/category-rules', errorHandler.asyncHandler(async (req, res) => {
+  const { pattern, category, priority } = req.body;
+  
+  console.log(`➕ Adding new category rule: ${pattern} -> ${category} (priority: ${priority || 0})`);
+  
+  await db.saveCategoryRule(pattern, category, priority || 0);
+  
+  // Create automatic backup after rule change
   try {
-    const { pattern, category, priority } = req.body;
-    await db.saveCategoryRule(pattern, category, priority || 0);
-    res.json({ success: true, message: 'Category rule saved successfully' });
-  } catch (error) {
-    console.error('Error saving category rule:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error saving category rule',
-      error: error.message
-    });
+    const backupResult = await categoryBackupManager.exportRules();
+    console.log(`💾 Automatic backup created: ${backupResult.filePath}`);
+  } catch (backupError) {
+    console.warn('⚠️ Failed to create automatic backup:', backupError.message);
   }
-});
+  
+  res.json({ success: true, message: 'Category rule saved successfully', backupCreated: true });
+}));
 
-app.put('/api/category-rules/:id', async (req, res) => {
+app.put('/api/category-rules/:id', errorHandler.asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { pattern, category, priority, enabled } = req.body;
+  
+  console.log(`✏️ Updating category rule ${id}: ${pattern} -> ${category} (priority: ${priority}, enabled: ${enabled})`);
+  
+  await db.updateCategoryRule(id, pattern, category, priority, enabled);
+  
+  // Create automatic backup after rule change
   try {
-    const { id } = req.params;
-    const { pattern, category, priority, enabled } = req.body;
-    await db.updateCategoryRule(id, pattern, category, priority, enabled);
-    res.json({ success: true, message: 'Category rule updated successfully' });
-  } catch (error) {
-    console.error('Error updating category rule:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating category rule',
-      error: error.message
-    });
+    const backupResult = await categoryBackupManager.exportRules();
+    console.log(`💾 Automatic backup created: ${backupResult.filePath}`);
+  } catch (backupError) {
+    console.warn('⚠️ Failed to create automatic backup:', backupError.message);
   }
-});
+  
+  res.json({ success: true, message: 'Category rule updated successfully', backupCreated: true });
+}));
 
-app.delete('/api/category-rules/:id', async (req, res) => {
+app.delete('/api/category-rules/:id', errorHandler.asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  
+  console.log(`🗑️ Deleting category rule ${id}`);
+  
+  await db.deleteCategoryRule(id);
+  
+  // Create automatic backup after rule change
   try {
-    const { id } = req.params;
-    await db.deleteCategoryRule(id);
-    res.json({ success: true, message: 'Category rule deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting category rule:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting category rule',
-      error: error.message
-    });
+    const backupResult = await categoryBackupManager.exportRules();
+    console.log(`💾 Automatic backup created: ${backupResult.filePath}`);
+  } catch (backupError) {
+    console.warn('⚠️ Failed to create automatic backup:', backupError.message);
   }
-});
+  
+  res.json({ success: true, message: 'Category rule deleted successfully', backupCreated: true });
+}));
 
 // Diagnostic endpoint for category troubleshooting
 app.get('/api/diagnostic/categories', async (req, res) => {

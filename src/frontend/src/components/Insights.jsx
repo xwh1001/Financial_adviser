@@ -5,13 +5,63 @@ const Insights = ({ dashboardData }) => {
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [timeframe, setTimeframe] = useState('lastmonth');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [availableYears, setAvailableYears] = useState([]);
 
   useEffect(() => {
-    loadInsights();
-  }, [timeframe]);
+    fetchAvailableYearsFromBackend();
+  }, []);
+
+  // Set initial selected month when dashboard data is available
+  useEffect(() => {
+    if (dashboardData && dashboardData.monthlyData && !selectedMonth) {
+      // Find the most recent month for the current year, or default to current month if available
+      const currentYear = new Date().getFullYear();
+      const currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      
+      const availableMonthsForCurrentYear = dashboardData.monthlyData
+        .filter(summary => summary.month.startsWith(currentYear.toString()))
+        .map(summary => summary.month)
+        .sort()
+        .reverse();
+      
+      if (availableMonthsForCurrentYear.includes(currentMonth)) {
+        // If current month has data, use it
+        setSelectedMonth(currentMonth);
+      } else if (availableMonthsForCurrentYear.length > 0) {
+        // Otherwise use the most recent available month for current year
+        setSelectedMonth(availableMonthsForCurrentYear[0]);
+      } else {
+        // If no data for current year, use the most recent month overall
+        const allAvailableMonths = dashboardData.monthlyData
+          .map(summary => summary.month)
+          .sort()
+          .reverse();
+        if (allAvailableMonths.length > 0) {
+          setSelectedMonth(allAvailableMonths[0]);
+          // Also update the year to match
+          const mostRecentYear = parseInt(allAvailableMonths[0].split('-')[0]);
+          setSelectedYear(mostRecentYear);
+        }
+      }
+    }
+  }, [dashboardData, selectedMonth]);
+
+  useEffect(() => {
+    if (selectedMonth) {
+      loadInsights();
+    }
+  }, [selectedMonth, selectedYear]);
 
   const loadInsights = async () => {
+    // Don't make API calls if no month is selected
+    if (!selectedMonth) {
+      console.log('⏸️ Skipping API call - no month selected');
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
@@ -25,21 +75,149 @@ const Insights = ({ dashboardData }) => {
         day: '2-digit' 
       });
       
-      const response = await fetch(`/api/insights?timeframe=${timeframe}&userTimezone=${encodeURIComponent(userTimezone)}&userDate=${userDate}`);
+      // Send the single selected month as an array for backend compatibility
+      const monthsToSend = selectedMonth ? [selectedMonth] : [];
+      
+      console.log('🔍 INSIGHTS API Request:', {
+        months: monthsToSend,
+        year: selectedYear,
+        selectedMonth: selectedMonth,
+        userTimezone: userTimezone,
+        userDate: userDate
+      });
+      
+      const response = await fetch('/api/insights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          months: monthsToSend, 
+          year: selectedYear,
+          userTimezone: userTimezone,
+          userDate: userDate
+        }),
+      });
       
       if (!response.ok) {
+        console.error('❌ API Response not OK:', response.status, response.statusText);
         throw new Error('Failed to load insights');
       }
       
       const data = await response.json();
+      console.log('✅ API Response received:', data);
+      console.log('📊 Insights data:', data.insights);
+      console.log('🔢 Has data:', data.insights?.hasData);
+      
       setInsights(data.insights);
     } catch (err) {
-      console.error('Error loading insights:', err);
+      console.error('❌ Error loading insights:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
+
+  const fetchAvailableYearsFromBackend = async () => {
+    try {
+      const response = await fetch('/api/available-years');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.years) {
+          setAvailableYears(data.years);
+        } else {
+          // Fallback: use current and past few years
+          const currentYear = new Date().getFullYear();
+          setAvailableYears([currentYear, currentYear - 1, currentYear - 2, currentYear - 3]);
+        }
+      } else {
+        // Fallback: use current and past few years  
+        const currentYear = new Date().getFullYear();
+        setAvailableYears([currentYear, currentYear - 1, currentYear - 2, currentYear - 3]);
+      }
+    } catch (error) {
+      console.error('Error fetching available years:', error);
+      // Fallback: use current and past few years
+      const currentYear = new Date().getFullYear();
+      setAvailableYears([currentYear, currentYear - 1, currentYear - 2, currentYear - 3]);
+    }
+  };
+
+  // Get available years from dashboard data (same as Categories tab)
+  const getAvailableYears = () => {
+    // First, try to use the availableYears from backend API
+    if (availableYears && availableYears.length > 0) {
+      return availableYears;
+    }
+    
+    // Fallback to dashboard data
+    if (dashboardData && dashboardData.monthlyData && dashboardData.monthlyData.length > 0) {
+      // Extract unique years from monthlyData
+      const years = new Set();
+      dashboardData.monthlyData.forEach(summary => {
+        const year = parseInt(summary.month.split('-')[0]);
+        years.add(year);
+      });
+      
+      return Array.from(years).sort().reverse();
+    }
+    
+    // Final fallback: return current and past few years
+    const currentYear = new Date().getFullYear();
+    return [currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
+  };
+
+  // Get available months from dashboard data for selected year (only months with data)
+  const getAvailableMonths = () => {
+    // Always use dashboard data to show only months with actual transactions
+    if (dashboardData && dashboardData.monthlyData && dashboardData.monthlyData.length > 0) {
+      const filteredMonths = dashboardData.monthlyData
+        .filter(summary => summary.month.startsWith(selectedYear.toString()))
+        .map(summary => summary.month)
+        .sort()
+        .reverse();
+      
+      console.log(`📅 Available months for ${selectedYear}:`, filteredMonths);
+      console.log('📊 All monthly data:', dashboardData.monthlyData.map(d => d.month));
+      
+      return filteredMonths;
+    }
+    
+    // If no dashboard data, return empty array instead of fallback months
+    return [];
+  };
+
+  const handleYearChange = (year) => {
+    console.log(`🔄 Year changed to: ${year}`);
+    setSelectedYear(year);
+    
+    // Update selected month to the first available month of the new year (only months with data)
+    let availableMonths = [];
+    if (dashboardData && dashboardData.monthlyData && dashboardData.monthlyData.length > 0) {
+      availableMonths = dashboardData.monthlyData
+        .filter(summary => summary.month.startsWith(year.toString()))
+        .map(summary => summary.month)
+        .sort()
+        .reverse();
+      
+      console.log(`📅 Available months for ${year}:`, availableMonths);
+      console.log('🗃️ All dashboard monthlyData:', dashboardData.monthlyData.map(d => d.month));
+    }
+    
+    if (availableMonths.length > 0) {
+      console.log(`✅ Setting selected month to: ${availableMonths[0]}`);
+      setSelectedMonth(availableMonths[0]); // Most recent month first
+    } else {
+      console.log(`❌ No available months for ${year}, clearing selection`);
+      setSelectedMonth(''); // Clear selection if no data available
+    }
+  };
+
+  const handleMonthSelect = (month) => {
+    console.log(`📅 Month selected: ${month}`);
+    setSelectedMonth(month);
+  };
+
 
   if (loading) {
     return (
@@ -93,25 +271,100 @@ const Insights = ({ dashboardData }) => {
     <section id="insights" className="section">
       <h2 className="section-title">💡 Financial Insights</h2>
       
-      {/* Timeframe Selector */}
-      <div className="timeframe-selector" style={{ marginBottom: '2rem' }}>
-        <label htmlFor="timeframe">Analysis Period:</label>
-        <select 
-          id="timeframe" 
-          value={timeframe} 
-          onChange={(e) => setTimeframe(e.target.value)}
-          style={{
-            padding: '0.5rem',
-            marginLeft: '0.5rem',
-            borderRadius: '4px',
-            border: '1px solid #ddd'
-          }}
-        >
-          <option value="lastmonth">Last Month</option>
-          <option value="last3months">Last 3 Months</option>
-          <option value="last6months">Last 6 Months</option>
-          <option value="ytd">Year to Date</option>
-        </select>
+      {/* Year and Month Selector (single month selection) */}
+      <div className="time-selector" style={{ marginBottom: '2rem' }}>
+        <h3>Select Analysis Period ({selectedMonth ? new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'No month selected'})</h3>
+        
+        {/* Year Selector */}
+        <div className="year-selector" style={{ marginBottom: '1.5rem' }}>
+          <h4>Select Year:</h4>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {getAvailableYears().map(year => (
+              <button
+                key={year}
+                onClick={() => handleYearChange(year)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: '2px solid #ddd',
+                  borderRadius: '8px',
+                  backgroundColor: selectedYear === year ? '#007bff' : 'white',
+                  color: selectedYear === year ? 'white' : '#333',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: selectedYear === year ? 'bold' : 'normal'
+                }}
+              >
+                {year}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Month Selector */}
+        <div className="month-selector" style={{ marginBottom: '1.5rem' }}>
+          <h4>Select Month for {selectedYear}:</h4>
+          {(() => {
+            const availableMonths = getAvailableMonths();
+            console.log(`🎯 Rendering month selector for ${selectedYear}, available months:`, availableMonths);
+            return availableMonths.length > 0;
+          })() ? (
+            <>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                {getAvailableMonths().map(month => {
+                  const date = new Date(month + '-01');
+                  const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+                  return (
+                    <button
+                      key={month}
+                      onClick={() => handleMonthSelect(month)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        border: '2px solid #ddd',
+                        borderRadius: '8px',
+                        backgroundColor: selectedMonth === month ? '#007bff' : 'white',
+                        color: selectedMonth === month ? 'white' : '#333',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        fontWeight: selectedMonth === month ? 'bold' : 'normal'
+                      }}
+                    >
+                      {monthName}
+                    </button>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: '0.9rem', color: '#666', margin: 0 }}>
+                Select a specific month to analyze spending patterns and insights for that period.
+              </p>
+            </>
+          ) : (
+            <div style={{ 
+              padding: '1rem', 
+              backgroundColor: '#f8f9fa', 
+              borderRadius: '8px', 
+              textAlign: 'center',
+              color: '#666',
+              border: '1px dashed #ddd'
+            }}>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>
+                📅 No transaction data available for {selectedYear}
+              </p>
+              <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.8rem' }}>
+                Upload bank statements for this year to see monthly insights
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <div style={{ 
+          padding: '1rem', 
+          backgroundColor: '#f8f9fa', 
+          borderRadius: '8px', 
+          fontSize: '0.9rem',
+          color: '#666'
+        }}>
+          <strong>📊 Benchmark Comparison:</strong> Your spending will be compared against official Australian Bureau of Statistics (ABS) household spending data to show you how you rank among other Australians.
+        </div>
       </div>
 
       {/* Savings Opportunities */}

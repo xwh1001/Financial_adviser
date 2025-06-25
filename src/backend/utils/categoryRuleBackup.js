@@ -22,6 +22,9 @@ class CategoryRuleBackupManager {
             // Get all category rules from database
             const categoryRules = await this.db.getAllCategoryRules();
             
+            // Get all category overrides (manual transaction category changes)
+            const categoryOverrides = await this.db.getCategoryOverrides();
+            
             // Get custom categories from the manager
             const customCategories = this.customCategoryManager.getCategories();
 
@@ -29,10 +32,11 @@ class CategoryRuleBackupManager {
             const backup = {
                 metadata: {
                     exportedAt: new Date().toISOString(),
-                    version: "1.0.0",
-                    description: "Financial Adviser Category Rules Backup",
+                    version: "1.1.0", // Bumped version to include category overrides
+                    description: "Financial Adviser Category Rules and Overrides Backup",
                     totalRules: categoryRules.length,
                     totalCustomCategories: Object.keys(customCategories).length,
+                    totalCategoryOverrides: categoryOverrides.length,
                     appVersion: process.env.npm_package_version || "unknown"
                 },
                 categoryRules: categoryRules.map(rule => ({
@@ -42,6 +46,12 @@ class CategoryRuleBackupManager {
                     enabled: Boolean(rule.enabled),
                     notes: rule.notes || `Exported rule for ${rule.pattern}`,
                     originalId: rule.id // Keep for reference
+                })),
+                categoryOverrides: categoryOverrides.map(override => ({
+                    transactionHash: override.transaction_hash,
+                    originalCategory: override.original_category,
+                    overrideCategory: override.override_category,
+                    updatedAt: override.updated_at
                 })),
                 customCategories: customCategories,
                 settings: {
@@ -54,13 +64,14 @@ class CategoryRuleBackupManager {
             // Write to file
             await fs.writeJSON(outputPath, backup, { spaces: 2 });
 
-            console.log(`✅ Category rules exported to: ${outputPath}`);
-            console.log(`📊 Exported ${backup.metadata.totalRules} rules and ${backup.metadata.totalCustomCategories} custom categories`);
+            console.log(`✅ Category rules and overrides exported to: ${outputPath}`);
+            console.log(`📊 Exported ${backup.metadata.totalRules} rules, ${backup.metadata.totalCategoryOverrides} overrides, and ${backup.metadata.totalCustomCategories} custom categories`);
 
             return {
                 success: true,
                 filePath: outputPath,
                 rulesCount: backup.metadata.totalRules,
+                overridesCount: backup.metadata.totalCategoryOverrides,
                 categoriesCount: backup.metadata.totalCustomCategories
             };
 
@@ -102,6 +113,8 @@ class CategoryRuleBackupManager {
                 rulesImported: 0,
                 rulesSkipped: 0,
                 rulesUpdated: 0,
+                overridesImported: 0,
+                overridesSkipped: 0,
                 categoriesImported: 0,
                 errors: []
             };
@@ -148,6 +161,34 @@ class CategoryRuleBackupManager {
                 }
             }
 
+            // Import category overrides
+            if (backup.categoryOverrides && backup.categoryOverrides.length > 0) {
+                for (const override of backup.categoryOverrides) {
+                    try {
+                        // Check if override already exists
+                        const existingOverrides = await this.db.getCategoryOverrides();
+                        const exists = existingOverrides.some(existing => 
+                            existing.transaction_hash === override.transactionHash
+                        );
+                        
+                        if (exists && !replaceExisting) {
+                            importStats.overridesSkipped++;
+                            continue;
+                        }
+                        
+                        // Save the category override
+                        await this.db.saveCategoryOverride(
+                            override.transactionHash,
+                            override.originalCategory,
+                            override.overrideCategory
+                        );
+                        importStats.overridesImported++;
+                    } catch (overrideError) {
+                        importStats.errors.push(`Failed to import override for ${override.transactionHash}: ${overrideError.message}`);
+                    }
+                }
+            }
+
             // Import custom categories
             if (backup.customCategories) {
                 try {
@@ -158,10 +199,12 @@ class CategoryRuleBackupManager {
                 }
             }
 
-            console.log('✅ Category rules import completed:');
+            console.log('✅ Category rules and overrides import completed:');
             console.log(`📊 Rules imported: ${importStats.rulesImported}`);
             console.log(`📊 Rules updated: ${importStats.rulesUpdated}`);
             console.log(`📊 Rules skipped: ${importStats.rulesSkipped}`);
+            console.log(`📊 Overrides imported: ${importStats.overridesImported}`);
+            console.log(`📊 Overrides skipped: ${importStats.overridesSkipped}`);
             console.log(`📊 Categories imported: ${importStats.categoriesImported}`);
             
             if (importStats.errors.length > 0) {
@@ -192,12 +235,16 @@ class CategoryRuleBackupManager {
             throw new Error('Invalid backup file: missing metadata');
         }
 
-        if (!backup.categoryRules && !backup.customCategories) {
-            throw new Error('Invalid backup file: no category rules or custom categories found');
+        if (!backup.categoryRules && !backup.customCategories && !backup.categoryOverrides) {
+            throw new Error('Invalid backup file: no category rules, overrides, or custom categories found');
         }
 
         if (backup.categoryRules && !Array.isArray(backup.categoryRules)) {
             throw new Error('Invalid backup file: categoryRules must be an array');
+        }
+
+        if (backup.categoryOverrides && !Array.isArray(backup.categoryOverrides)) {
+            throw new Error('Invalid backup file: categoryOverrides must be an array');
         }
 
         // Validate each rule structure
@@ -205,6 +252,15 @@ class CategoryRuleBackupManager {
             for (const rule of backup.categoryRules) {
                 if (!rule.pattern || !rule.category) {
                     throw new Error('Invalid backup file: each rule must have pattern and category');
+                }
+            }
+        }
+
+        // Validate each override structure
+        if (backup.categoryOverrides) {
+            for (const override of backup.categoryOverrides) {
+                if (!override.transactionHash || !override.originalCategory || !override.overrideCategory) {
+                    throw new Error('Invalid backup file: each override must have transactionHash, originalCategory, and overrideCategory');
                 }
             }
         }

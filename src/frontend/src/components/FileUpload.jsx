@@ -59,6 +59,23 @@ const FileUpload = ({ isOpen, onClose, onUploadComplete }) => {
     }
   }, [isOpen]);
 
+  // Handle ESC key press
+  useEffect(() => {
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isOpen, onClose]);
+
   const loadExistingFiles = async () => {
     try {
       setLoading(true);
@@ -347,8 +364,15 @@ const FileUpload = ({ isOpen, onClose, onUploadComplete }) => {
 
   if (!isOpen) return null;
 
+  // Handle background click
+  const handleBackgroundClick = (event) => {
+    if (event.target.classList.contains('file-upload-overlay')) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="file-upload-overlay">
+    <div className="file-upload-overlay" onClick={handleBackgroundClick}>
       <div className="file-upload-modal">
         <div className="file-upload-header">
           <h2>📁 Upload Financial Documents</h2>

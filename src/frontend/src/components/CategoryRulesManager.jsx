@@ -8,6 +8,7 @@ const CategoryRulesManager = ({ isOpen, onClose }) => {
   const [editingRule, setEditingRule] = useState(null);
   const [newRule, setNewRule] = useState({ pattern: '', category: '', priority: 0 });
   const [customCategories, setCustomCategories] = useState({});
+  const [groupedCategories, setGroupedCategories] = useState({});
 
   const availableCategories = [...new Set([...Object.keys(categoryEmojis), ...Object.keys(customCategories)])];
 
@@ -15,6 +16,7 @@ const CategoryRulesManager = ({ isOpen, onClose }) => {
     if (isOpen) {
       loadCategoryRules();
       loadCustomCategories();
+      loadGroupedCategories();
     }
   }, [isOpen]);
 
@@ -55,6 +57,18 @@ const CategoryRulesManager = ({ isOpen, onClose }) => {
       }
     } catch (error) {
       console.error('Error loading custom categories:', error);
+    }
+  };
+
+  const loadGroupedCategories = async () => {
+    try {
+      const response = await fetch('/api/categories-grouped');
+      if (response.ok) {
+        const data = await response.json();
+        setGroupedCategories(data);
+      }
+    } catch (error) {
+      console.error('Error loading grouped categories:', error);
     }
   };
 
@@ -207,7 +221,59 @@ const CategoryRulesManager = ({ isOpen, onClose }) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {rules.map(rule => (
+                        {rules.sort((a, b) => {
+                          // COICOP order for father categories (same as CategoryDropdown)
+                          const fatherCategoryOrder = [
+                            'FOOD',
+                            'ALCOHOLIC_TOBACCO', 
+                            'CLOTHING_FOOTWEAR',
+                            'HOUSING',
+                            'HOUSEHOLD_EQUIPMENT',
+                            'HEALTH',
+                            'TRANSPORT',
+                            'COMMUNICATION',
+                            'RECREATION',
+                            'EDUCATION',
+                            'RESTAURANTS_HOTELS',
+                            'MISCELLANEOUS'
+                          ];
+                          
+                          // Helper function to get father category for a child category
+                          const getFatherCategory = (childCategory) => {
+                            for (const [fatherCode, fatherInfo] of Object.entries(groupedCategories)) {
+                              if (fatherInfo.children && fatherInfo.children.includes(childCategory)) {
+                                return fatherCode;
+                              }
+                            }
+                            return 'MISCELLANEOUS'; // Default fallback
+                          };
+                          
+                          // Get father categories
+                          const aFatherCategory = getFatherCategory(a.category);
+                          const bFatherCategory = getFatherCategory(b.category);
+                          
+                          // Sort by COICOP father category order first
+                          if (aFatherCategory !== bFatherCategory) {
+                            const aIndex = fatherCategoryOrder.indexOf(aFatherCategory);
+                            const bIndex = fatherCategoryOrder.indexOf(bFatherCategory);
+                            const aOrder = aIndex === -1 ? 999 : aIndex;
+                            const bOrder = bIndex === -1 ? 999 : bIndex;
+                            return aOrder - bOrder;
+                          }
+                          
+                          // Then sort by category name within the same father category
+                          if (a.category !== b.category) {
+                            return a.category.localeCompare(b.category);
+                          }
+                          
+                          // Then by priority (higher priority first)
+                          if (a.priority !== b.priority) {
+                            return b.priority - a.priority;
+                          }
+                          
+                          // Finally by pattern name (alphabetical)
+                          return a.pattern.localeCompare(b.pattern);
+                        }).map(rule => (
                           <tr key={rule.id} style={{ opacity: rule.enabled ? 1 : 0.5 }}>
                             <td style={{ textAlign: 'center' }}>
                               <span style={{ 
@@ -243,6 +309,7 @@ const CategoryRulesManager = ({ isOpen, onClose }) => {
                                   fontSize: '0.8rem',
                                   cursor: 'pointer'
                                 }}
+                                title={rule.enabled ? 'Click to disable this rule' : 'Click to enable this rule'}
                               >
                                 {rule.enabled ? '✓ Enabled' : '✗ Disabled'}
                               </button>

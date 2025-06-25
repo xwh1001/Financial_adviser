@@ -391,6 +391,29 @@ class Database {
         return { transactions: transactionsWithOverrides, income, monthlySummaries };
     }
 
+    async getAllHistoricalDataForInsights() {
+        // New method specifically for the INSIGHTS engine that needs all historical data
+        // This allows month filtering across all years without affecting YTD calculations
+        const transactions = await this.all(
+            `SELECT * FROM transactions 
+             ORDER BY date DESC`
+        );
+
+        const transactionsWithOverrides = await this.applyCategoryOverridesToTransactions(transactions);
+
+        const income = await this.all(
+            `SELECT * FROM income 
+             ORDER BY pay_period_end DESC`
+        );
+
+        const monthlySummaries = await this.all(
+            `SELECT * FROM monthly_summaries 
+             ORDER BY month`
+        );
+
+        return { transactions: transactionsWithOverrides, income, monthlySummaries };
+    }
+
     async getAllDataSummary() {
         // Get all transactions from all years
         const transactions = await this.all(
@@ -705,21 +728,6 @@ class Database {
         });
     }
 
-    /**
-     * Update a transaction's category
-     */
-    async updateTransactionCategory(transactionId, newCategory) {
-        return new Promise((resolve, reject) => {
-            const sql = 'UPDATE transactions SET category = ? WHERE id = ?';
-            this.db.run(sql, [newCategory, transactionId], function(err) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(this.changes);
-                }
-            });
-        });
-    }
 
 
     /**

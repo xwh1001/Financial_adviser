@@ -54,6 +54,23 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
     }
   }, [isOpen]);
 
+  // Handle ESC key press
+  useEffect(() => {
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isOpen, onClose]);
+
   const loadSettings = async () => {
     setLoading(true);
     try {
@@ -252,11 +269,18 @@ const Settings = ({ isOpen, onClose, onSettingsUpdate }) => {
     }).format(amount);
   };
 
+  // Handle background click
+  const handleBackgroundClick = (event) => {
+    if (event.target.classList.contains('modal')) {
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <>
-      <div className="modal" style={{ display: 'block' }}>
+      <div className="modal" style={{ display: 'block' }} onClick={handleBackgroundClick}>
         <div className="modal-content" style={{ maxWidth: '1000px', maxHeight: '90vh' }}>
           <div className="modal-header">
             <h3>⚙️ Settings & Configuration</h3>

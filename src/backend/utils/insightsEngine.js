@@ -19,6 +19,40 @@ class FinancialInsightsEngine {
   }
 
   /**
+   * Generate comprehensive personalized insights using specific months (same as Categories page)
+   */
+  async generatePersonalizedInsightsByMonths(months, userTimezone = 'Australia/Sydney', userDate = null, userLocation = null, userCity = null) {
+    try {
+      const userData = await this.getUserFinancialDataByMonths(months, userTimezone, userDate);
+      
+      if (!userData || userData.totalTransactions === 0) {
+        return this.getEmptyStateInsights();
+      }
+
+      const insights = {
+        hasData: true,
+        summary: userData.summary,
+        spendingPatterns: await this.analyzeSpendingPatterns(userData),
+        savingsOpportunities: await this.identifySavingsOpportunities(userData),
+        budgetRecommendations: await this.generateBudgetRecommendations(userData),
+        australianComparison: this.compareToAustralianAverages(userData, userLocation, userCity),
+        actionPlan: await this.createActionPlan(userData),
+        metadata: {
+          analysisDate: new Date().toISOString(),
+          months: months,
+          dataPoints: userData.totalTransactions
+        }
+      };
+
+      return insights;
+
+    } catch (error) {
+      console.error('❌ Failed to generate insights by months:', error.message);
+      throw new Error(`Insights generation failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Generate comprehensive personalized insights
    */
   async generatePersonalizedInsights(timeframe = 'ytd', userTimezone = 'Australia/Sydney', userDate = null, userLocation = null, userCity = null) {
@@ -50,6 +84,48 @@ class FinancialInsightsEngine {
       console.error('❌ Failed to generate insights:', error.message);
       throw new Error(`Insights generation failed: ${error.message}`);
     }
+  }
+
+  /**
+   * Get user financial data for analysis using specific months (same as Categories page)
+   */
+  async getUserFinancialDataByMonths(months, userTimezone = 'Australia/Sydney', userDate = null) {
+    const historicalData = await this.db.getAllHistoricalDataForInsights();
+    
+    console.log(`📊 Historical Data summary: ${historicalData?.transactions?.length || 0} transactions, ${historicalData?.income?.length || 0} income records`);
+    
+    if (!historicalData || !historicalData.transactions.length) {
+      console.log('❌ No historical data available');
+      return null;
+    }
+
+    if (!months || !months.length) {
+      console.log('❌ No months provided for filtering');
+      return null;
+    }
+    
+    console.log(`🔍 Filtering data for months: ${JSON.stringify(months)}`);
+    
+    // Filter transactions and income using centralized logic with specific months
+    const filteredTransactions = DateFilter.filterTransactionsByMonths(historicalData.transactions, months);
+    const filteredIncome = DateFilter.filterIncomeByMonths(historicalData.income, months);
+    
+    console.log(`📈 Filtered results: ${filteredTransactions.length} transactions, ${filteredIncome.length} income records`);
+
+    if (!filteredTransactions.length) {
+      console.log('❌ No transactions found for specified months');
+      return null;
+    }
+
+    // Use centralized calculation logic for consistency
+    const result = DateFilter.calculateMonthlySummary(filteredTransactions, filteredIncome);
+    
+    console.log(`✅ Financial data summary calculated: ${result.totalTransactions} total transactions, ${result.categories?.length || 0} categories`);
+    
+    return {
+      ...result,
+      months: months
+    };
   }
 
   /**

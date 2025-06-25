@@ -250,13 +250,29 @@ const CategoryModal = ({ isOpen, category, categoryName, selectedMonths = [], se
                     <td>{txn.account_type ? txn.account_type.toUpperCase() : 'N/A'}</td>
                     <td>
                       {editingTransaction === txn.id ? (
-                        <CategoryDropdown
-                          value={txn.category}
-                          onChange={(newCategory) => handleCategoryChange(txn.id, newCategory)}
-                          placeholder="Select Category"
-                          includeEmptyOption={false}
-                          style={{ padding: '4px', fontSize: '0.8rem', width: '200px' }}
-                        />
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          <CategoryDropdown
+                            value={txn.category}
+                            onChange={(newCategory) => handleCategoryChange(txn.id, newCategory)}
+                            placeholder="Select Category"
+                            includeEmptyOption={false}
+                            style={{ padding: '4px', fontSize: '0.8rem', width: '200px' }}
+                          />
+                          <button 
+                            onClick={() => setEditingTransaction(null)}
+                            style={{ 
+                              padding: '4px 8px', 
+                              fontSize: '0.8rem', 
+                              background: '#6c757d', 
+                              color: 'white',
+                              border: 'none', 
+                              borderRadius: '3px', 
+                              cursor: 'pointer' 
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       ) : (
                         <span>
                           {categoryEmojis[txn.category]} {txn.category?.replace(/_/g, ' ')}
@@ -267,12 +283,7 @@ const CategoryModal = ({ isOpen, category, categoryName, selectedMonths = [], se
                     <td>
                       <div style={{ display: 'flex', gap: '4px' }}>
                         {editingTransaction === txn.id ? (
-                          <button 
-                            onClick={() => setEditingTransaction(null)}
-                            style={{ padding: '2px 6px', fontSize: '0.8rem', background: '#ccc', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-                          >
-                            Cancel
-                          </button>
+                          <span style={{ fontSize: '0.8rem', color: '#666' }}>Editing...</span>
                         ) : (
                           <>
                             <button 
